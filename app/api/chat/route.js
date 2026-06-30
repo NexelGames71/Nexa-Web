@@ -308,7 +308,8 @@ async function persistGeneratedImageAsset(imagePayload, conversationId) {
   const mimeType = imagePayload.mime_type || "image/png";
   const extension = imageExtensionFromMime(mimeType);
   const safeConversationId = String(conversationId || "chat").replace(/[^a-z0-9_-]/gi, "");
-  const fileName = `${safeConversationId || "chat"}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${extension}`;
+  const imageId = `${safeConversationId || "chat"}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const fileName = `Nexa-Generated-Image-${imageId}.${extension}`;
   const relativeDir = path.join("generated", "nexa-images");
   const absoluteDir = path.join(process.cwd(), "public", relativeDir);
   const absolutePath = path.join(absoluteDir, fileName);
@@ -1467,45 +1468,121 @@ export async function POST(request) {
     ];
 
     if (isImageGenerationPrompt(content)) {
-      const imageResult = await generateImageReply({
-        content,
-        modelMessages,
-        conversationId,
-        maxNewTokens,
-        modelTemperature,
-      });
-      const reply = imageResult.reply;
+      const runImageGeneration = async () => {
+        const imageResult = await generateImageReply({
+          content,
+          modelMessages,
+          conversationId,
+          maxNewTokens,
+          modelTemperature,
+        });
+        const reply = imageResult.reply;
 
-      const savedAssistantMessage = await saveMessage({
-        userId: auth.user.$id,
-        conversationId,
-        role: "assistant",
-        content: reply,
-      });
+        const savedAssistantMessage = await saveMessage({
+          userId: auth.user.$id,
+          conversationId,
+          role: "assistant",
+          content: reply,
+        });
 
-      const resolvedTitle = needsGeneratedTitle
-        ? await generateConversationTitle(content, reply, backendConfig.system_prompt)
-        : conversationData.conversation.title;
+        const resolvedTitle = needsGeneratedTitle
+          ? await generateConversationTitle(content, reply, backendConfig.system_prompt)
+          : conversationData.conversation.title;
 
-      const updatedConversation = await updateConversationSummary(conversationId, auth.user.$id, {
-        title: resolvedTitle,
-        lastMessagePreview: `Generated image: ${content}`.slice(0, 120),
-      });
-      const updatedMemory = await persistMemorySafely(auth.user.$id, content, initialMemory);
+        const updatedConversation = await updateConversationSummary(conversationId, auth.user.$id, {
+          title: resolvedTitle,
+          lastMessagePreview: `Generated image: ${content}`.slice(0, 120),
+        });
+        const updatedMemory = await persistMemorySafely(auth.user.$id, content, initialMemory);
 
-      return Response.json({
-        reply,
-        conversationId,
-        conversation: updatedConversation,
-        memory: updatedMemory,
-        userMessage: savedUserMessage,
-        assistantMessage: savedAssistantMessage,
-        source_confidence: "none",
-        used_web_search: false,
-        sources: [],
-        image: imageResult.image,
-        warnings: imageResult.warnings,
-      });
+        return {
+          reply,
+          conversationId,
+          conversation: updatedConversation,
+          memory: updatedMemory,
+          userMessage: savedUserMessage,
+          assistantMessage: savedAssistantMessage,
+          source_confidence: "none",
+          used_web_search: false,
+          sources: [],
+          image: imageResult.image,
+          warnings: imageResult.warnings,
+        };
+      };
+
+      if (wantsStream) {
+        const initialConversation = {
+          $id: conversationId,
+          title: conversationData.conversation.title || DEFAULT_CONVERSATION_TITLE,
+          updatedAt: conversationData.conversation.updatedAt || conversationData.conversation.$updatedAt || "",
+          lastMessagePreview: `Generating image: ${content}`.slice(0, 120),
+        };
+
+        const stream = new ReadableStream({
+          async start(controller) {
+            let closed = false;
+            let progress = 8;
+
+            const send = (event, payload) => {
+              if (!closed) {
+                controller.enqueue(sseEvent(event, payload));
+              }
+            };
+
+            const keepAlive = setInterval(() => {
+              progress = Math.min(92, progress + 6);
+              send("progress", {
+                status: "processing",
+                progress,
+                message: "Generating image",
+              });
+            }, 4000);
+
+            send("meta", {
+              conversationId,
+              conversation: initialConversation,
+              userMessage: savedUserMessage,
+              memory: initialMemory,
+            });
+            send("progress", {
+              status: "processing",
+              progress,
+              message: "Generating image",
+            });
+
+            try {
+              const result = await runImageGeneration();
+              clearInterval(keepAlive);
+              send("progress", {
+                status: "completed",
+                progress: 100,
+                message: "Image ready",
+                image: result.image,
+              });
+              send("done", result);
+            } catch (error) {
+              clearInterval(keepAlive);
+              send("error", {
+                error: error.message || "Image generation failed.",
+              });
+            } finally {
+              closed = true;
+              controller.close();
+            }
+          },
+        });
+
+        return new Response(stream, {
+          headers: {
+            "Content-Type": "text/event-stream; charset=utf-8",
+            "Cache-Control": "no-cache, no-transform",
+            Connection: "keep-alive",
+            "X-Accel-Buffering": "no",
+          },
+        });
+      }
+
+      return Response.json(await runImageGeneration());
     }
 
     if (wantsStream && shouldUseStreamingBackend(content)) {
