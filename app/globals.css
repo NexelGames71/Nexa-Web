@@ -1,0 +1,103 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  @apply bg-shell text-ink antialiased;
+}
+
+textarea {
+  field-sizing: content;
+}
+
+/* ChatGPT-style chat surface */
+.chat-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #d9d9d9 transparent;
+}
+
+.admin-analytics-page {
+  background:
+    radial-gradient(circle at top right, rgba(93, 95, 238, 0.08), transparent 28%),
+    radial-gradient(circle at left center, rgba(15, 159, 132, 0.06), transparent 24%);
+}
+
+.admin-pulse-dot {
+  animation: adminPulse 1.8s ease-in-out infinite;
+}
+
+.admin-draw-line {
+  stroke-dasharray: 1000;
+  stroke-dashoffset: 1000;
+  animation: adminDrawLine 1s ease forwards;
+}
+
+.admin-bar-rise {
+  transform-origin: bottom center;
+  animation: adminBarRise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.admin-progress-fill {
+  transform-origin: left center;
+  animation: adminProgressFill 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.admin-fade-up {
+  animation: adminFadeUp 0.55s ease both;
+}
+
+@keyframes adminPulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.35);
+    opacity: 0.55;
+  }
+}
+
+@keyframes adminDrawLine {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes adminBarRise {
+  from {
+    opacity: 0.35;
+    transform: scaleY(0.15);
+  }
+  to {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+
+@keyframes adminProgressFill {
+  from {
+    transform: scaleX(0.08);
+    opacity: 0.45;
+  }
+  to {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+}
+
+@keyframes adminFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
