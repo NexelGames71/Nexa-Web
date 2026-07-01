@@ -11,6 +11,7 @@
 } from "../../../lib/server/memory";
 import { requireUserFromRequest } from "../../../lib/server/appwrite";
 import { startImageGenerationJob } from "../../../lib/server/image-generation-jobs";
+import { createSignedDownloadUrl, uploadR2Object } from "../../../lib/server/r2";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
@@ -21,6 +22,9 @@ const DEFAULT_TOP_P = 0.9;
 const MAX_CONTEXT_MESSAGES = 8;
 const TITLE_MAX_NEW_TOKENS = 12;
 const encoder = new TextEncoder();
+const SERVERLESS_READ_ONLY_FS = Boolean(
+  process.env.NETLIFY || process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME,
+);
 const CONTINUITY_SYSTEM_PROMPT = [
   "Conversation continuity rules:",
   "Treat short follow-up questions as referring to the recent conversation unless the user clearly changes topic.",
@@ -338,12 +342,38 @@ async function persistGeneratedImageAsset(imagePayload, conversationId) {
   const safeConversationId = String(conversationId || "chat").replace(/[^a-z0-9_-]/gi, "");
   const imageId = `${safeConversationId || "chat"}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const fileName = `Nexa-Generated-Image-${imageId}.${extension}`;
+  const imageBuffer = Buffer.from(b64, "base64");
+  const dataUrl = `data:${mimeType};base64,${b64}`;
+
+  try {
+    const key = `generated/nexa-images/${fileName}`;
+    await uploadR2Object({
+      key,
+      body: imageBuffer,
+      contentType: mimeType,
+    });
+    return await createSignedDownloadUrl(key, 60 * 60 * 24 * 7);
+  } catch (error) {
+    if (!SERVERLESS_READ_ONLY_FS) {
+      console.warn("Generated image R2 upload skipped:", error?.message || error);
+    }
+  }
+
+  if (SERVERLESS_READ_ONLY_FS) {
+    return dataUrl;
+  }
+
   const relativeDir = path.join("generated", "nexa-images");
   const absoluteDir = path.join(process.cwd(), "public", relativeDir);
   const absolutePath = path.join(absoluteDir, fileName);
 
-  await mkdir(absoluteDir, { recursive: true });
-  await writeFile(absolutePath, Buffer.from(b64, "base64"));
+  try {
+    await mkdir(absoluteDir, { recursive: true });
+    await writeFile(absolutePath, imageBuffer);
+  } catch (error) {
+    console.warn("Generated image local write failed:", error?.message || error);
+    return dataUrl;
+  }
 
   return `/${relativeDir.replace(/\\/g, "/")}/${fileName}`;
 }
