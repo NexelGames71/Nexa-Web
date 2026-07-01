@@ -38,8 +38,9 @@ const collectionIds = {
   billingPlans:
     process.env.APPWRITE_BILLING_PLANS_COLLECTION_ID || defaultCollectionId("billing", "plans"),
   subscriptions:
-    process.env.APPWRITE_SUBSCRIPTIONS_COLLECTION_ID || defaultCollectionId("subscriptions"),
-  payments: process.env.APPWRITE_PAYMENTS_COLLECTION_ID || defaultCollectionId("payments"),
+    process.env.APPWRITE_SUBSCRIPTIONS_COLLECTION_ID || defaultCollectionId("billing", "subscriptions"),
+  payments:
+    process.env.APPWRITE_PAYMENTS_COLLECTION_ID || defaultCollectionId("billing", "payments"),
   supportTickets:
     process.env.APPWRITE_SUPPORT_TICKETS_COLLECTION_ID || defaultCollectionId("support", "tickets"),
   supportNotes:
@@ -104,8 +105,8 @@ const collections = [
       varchar("currency", 8, true),
       varchar("paypalProductId", 160, false),
       varchar("paypalPlanId", 160, false),
-      varchar("limits", 8000, false),
-      varchar("features", 8000, false),
+      varchar("limits", 4000, false),
+      varchar("features", 1000, false),
       bool("isPublic", true),
       varchar("status", 32, true),
       varchar("createdAt", 64, true),
@@ -151,6 +152,8 @@ const collections = [
       varchar("status", 40, true),
       varchar("paidAt", 64, false),
       varchar("failureReason", 1000, false),
+      varchar("createdAt", 64, true),
+      varchar("updatedAt", 64, true),
     ],
     indexes: [
       key("paymentId_unique", "unique", ["paymentId"]),
@@ -164,7 +167,7 @@ const collections = [
       varchar("ticketId", 80, true),
       varchar("userId", 64, true),
       varchar("subject", 240, true),
-      varchar("message", 8000, true),
+      varchar("message", 4000, true),
       varchar("category", 40, true),
       varchar("priority", 40, true),
       varchar("status", 40, true),
@@ -186,7 +189,7 @@ const collections = [
       varchar("noteId", 80, true),
       varchar("ticketId", 80, true),
       varchar("adminId", 64, true),
-      varchar("note", 8000, true),
+      varchar("note", 4000, true),
       varchar("visibility", 40, true),
       varchar("createdAt", 64, true),
     ],
@@ -204,7 +207,7 @@ const collections = [
       varchar("action", 120, true),
       varchar("targetType", 80, true),
       varchar("targetId", 160, true),
-      varchar("metadata", 8000, false),
+      varchar("metadata", 4000, false),
       varchar("createdAt", 64, true),
     ],
     indexes: [
