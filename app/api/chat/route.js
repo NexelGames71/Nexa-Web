@@ -348,64 +348,100 @@ async function persistGeneratedImageAsset(imagePayload, conversationId) {
   return `/${relativeDir.replace(/\\/g, "/")}/${fileName}`;
 }
 
-async function generateImageReply({ content, modelMessages, conversationId, maxNewTokens, modelTemperature }) {
-  const response = await fetch(`${BACKEND_URL}/v1/chat/grounded`, {
+async function generateBackendImage(args) {
+  const jobResponse = await fetch(`${BACKEND_URL}/v1/image/jobs`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      messages: modelMessages,
-      auto_execute: true,
-      session_id: `web_${conversationId}_${Date.now()}`,
-      max_new_tokens: Math.min(maxNewTokens, 320),
-      temperature: Math.min(modelTemperature, 0.4),
-      top_p: DEFAULT_TOP_P,
+      prompt: args.prompt,
+      aspect_ratio: args.aspect_ratio || "1:1",
+      style: args.style || "auto",
+      raw_user_intent: args.raw_user_intent || args.prompt,
+      optimize: true,
+      backend: "ideation_local",
     }),
     cache: "no-store",
   });
 
-  if (!response.ok) {
-    throw new Error((await response.text()) || `Image generation failed (${response.status}).`);
-  }
-
-  const data = await response.json();
-  let imagePayload = data.image || null;
-  const fallbackArgs = !imagePayload
-    ? (parseImageToolCallText(data.reply) || inferDirectImageArgs(content))
-    : null;
-  if (!imagePayload && fallbackArgs) {
-    const fallbackResponse = await fetch(`${BACKEND_URL}/v1/image/generate`, {
+  if (jobResponse.status === 404 || jobResponse.status === 405) {
+    const directResponse = await fetch(`${BACKEND_URL}/v1/image/generate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        prompt: fallbackArgs.prompt || content,
-        aspect_ratio: fallbackArgs.aspect_ratio || "1:1",
-        style: fallbackArgs.style || "auto",
+        prompt: args.prompt,
+        aspect_ratio: args.aspect_ratio || "1:1",
+        style: args.style || "auto",
+        raw_user_intent: args.raw_user_intent || args.prompt,
         optimize: true,
         backend: "ideation_local",
       }),
       cache: "no-store",
     });
 
-    if (!fallbackResponse.ok) {
-      throw new Error((await fallbackResponse.text()) || `Image generation failed (${fallbackResponse.status}).`);
+    if (!directResponse.ok) {
+      throw new Error((await directResponse.text()) || `Image generation failed (${directResponse.status}).`);
     }
 
-    const fallbackData = await fallbackResponse.json();
-    imagePayload = {
-      url: fallbackData.url,
-      b64: fallbackData.b64,
-      mime_type: fallbackData.mime_type,
-      prompt_used: fallbackData.prompt_used,
-      backend: fallbackData.backend,
-      duration_ms: fallbackData.duration_ms,
-    };
+    return directResponse.json();
   }
 
-  if (!imagePayload) {
+  if (!jobResponse.ok) {
+    throw new Error((await jobResponse.text()) || `Image generation failed (${jobResponse.status}).`);
+  }
+
+  const created = await jobResponse.json();
+  const jobId = created?.job?.id;
+  if (!jobId) {
+    throw new Error("Image generation job did not return an id.");
+  }
+
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < 15 * 60 * 1000) {
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    const statusResponse = await fetch(`${BACKEND_URL}/v1/image/jobs/${encodeURIComponent(jobId)}`, {
+      cache: "no-store",
+    });
+
+    if (!statusResponse.ok) {
+      throw new Error((await statusResponse.text()) || `Image job status failed (${statusResponse.status}).`);
+    }
+
+    const job = await statusResponse.json();
+    if (job.status === "failed") {
+      throw new Error(job.error || "Image generation failed.");
+    }
+    if (job.status === "completed" && job.result) {
+      return job.result;
+    }
+  }
+
+  throw new Error("Image generation is still running. Try again in a moment.");
+}
+
+async function generateImageReply({ content, conversationId }) {
+  const args = inferDirectImageArgs(content);
+  const imagePayload = await generateBackendImage({
+    ...args,
+    raw_user_intent: content,
+  });
+
+  if (!imagePayload?.url && !imagePayload?.b64) {
+    const fallbackArgs = parseImageToolCallText(imagePayload?.reply) || args;
+    const fallbackImage = await generateBackendImage({
+      ...fallbackArgs,
+      raw_user_intent: content,
+    });
+    if (!fallbackImage?.url && !fallbackImage?.b64) {
+      throw new Error("Image generation completed without an image payload.");
+    }
     return {
-      reply: String(data.reply || "I could not generate an image for that request.").trim(),
-      image: null,
-      warnings: Array.isArray(data.warnings) ? data.warnings : [],
+      reply: [
+        `Generated image: ${fallbackImage.prompt_used || fallbackArgs.prompt || content}`,
+        "",
+        `![Generated image](${await persistGeneratedImageAsset(fallbackImage, conversationId)})`,
+      ].join("\n").trim(),
+      image: { ...fallbackImage, b64: undefined },
+      warnings: Array.isArray(fallbackImage.warnings) ? fallbackImage.warnings : [],
     };
   }
 
@@ -423,7 +459,7 @@ async function generateImageReply({ content, modelMessages, conversationId, maxN
   return {
     reply,
     image: { ...imagePayload, url: imageUrl || imagePayload.url || null, b64: undefined },
-    warnings: Array.isArray(data.warnings) ? data.warnings : [],
+    warnings: Array.isArray(imagePayload.warnings) ? imagePayload.warnings : [],
   };
 }
 
