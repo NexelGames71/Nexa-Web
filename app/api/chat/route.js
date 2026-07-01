@@ -264,13 +264,25 @@ function parseImageToolCallText(text) {
     return null;
   }
 
-  try {
-    const parsed = JSON.parse(
-      candidate
-        .replace(/[“”]/g, '"')
-        .replace(/[‘’]/g, "'")
-        .replace(/,\s*([}\]])/g, "$1"),
-    );
+  const normalizedCandidate = candidate
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/,\s*([}\]])/g, "$1")
+    .trim();
+
+  const candidates = [
+    normalizedCandidate,
+    normalizedCandidate.replace(/\\"/g, '"').replace(/\\\\/g, "\\"),
+  ];
+
+  for (const item of candidates) {
+    try {
+      const parsed = JSON.parse(item);
+      if (typeof parsed === "string") {
+        candidates.push(parsed.trim());
+        continue;
+      }
+
     const toolName = parsed.tool || parsed.$tool || parsed.name || parsed.tool_name;
     const args = parsed.args || parsed.arguments || parsed.parameters || {};
     if (
@@ -280,11 +292,24 @@ function parseImageToolCallText(text) {
     ) {
       return args;
     }
-  } catch {
-    return null;
+    } catch {
+      // Try the next normalization shape.
+    }
   }
 
   return null;
+}
+
+function inferDirectImageArgs(content) {
+  const normalized = String(content || "").toLowerCase();
+  const isWide = /\b(landscape|wide|banner|hero|16:9)\b/.test(normalized);
+  const isTall = /\b(vertical|poster|phone|story|9:16)\b/.test(normalized);
+  const isIcon = /\b(icon|logo|app icon|browser icon|monogram|3d)\b/.test(normalized);
+  return {
+    prompt: content,
+    aspect_ratio: isWide ? "16:9" : isTall ? "9:16" : "1:1",
+    style: isIcon ? "render_3d" : "auto",
+  };
 }
 
 function imageExtensionFromMime(mimeType) {
@@ -344,7 +369,9 @@ async function generateImageReply({ content, modelMessages, conversationId, maxN
 
   const data = await response.json();
   let imagePayload = data.image || null;
-  const fallbackArgs = !imagePayload ? parseImageToolCallText(data.reply) : null;
+  const fallbackArgs = !imagePayload
+    ? (parseImageToolCallText(data.reply) || inferDirectImageArgs(content))
+    : null;
   if (!imagePayload && fallbackArgs) {
     const fallbackResponse = await fetch(`${BACKEND_URL}/v1/image/generate`, {
       method: "POST",
