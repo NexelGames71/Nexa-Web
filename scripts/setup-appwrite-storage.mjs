@@ -48,6 +48,9 @@ const generatedImagesCollectionId =
   process.env.APPWRITE_GENERATED_IMAGES_COLLECTION_ID || defaultCollectionId("generated", "images");
 const storageUsageCollectionId =
   process.env.APPWRITE_STORAGE_USAGE_COLLECTION_ID || defaultCollectionId("storage", "usage");
+const imageGenerationJobsCollectionId =
+  process.env.APPWRITE_IMAGE_GENERATION_JOBS_COLLECTION_ID ||
+  defaultCollectionId("image", "generation", "jobs");
 
 const responseFormat = "1.9.5";
 const pollIntervalMs = 1500;
@@ -137,6 +140,29 @@ const collections = [
     indexes: [
       { key: "userId_unique", type: "unique", attributes: ["userId"], orders: ["ASC"] },
       { key: "tenant_user", type: "key", attributes: ["tenantId", "userId"], orders: ["ASC", "ASC"] },
+    ],
+  },
+  {
+    id: imageGenerationJobsCollectionId,
+    name: "Image Generation Jobs",
+    attributes: [
+      { key: "userId", type: "varchar", size: 64, required: true },
+      { key: "conversationId", type: "varchar", size: 64, required: true },
+      { key: "status", type: "varchar", size: 32, required: true },
+      { key: "progress", type: "integer", required: true },
+      { key: "title", type: "varchar", size: 120, required: true },
+      { key: "detail", type: "varchar", size: 1000, required: false },
+      { key: "aspectRatio", type: "varchar", size: 16, required: true },
+      { key: "style", type: "varchar", size: 120, required: true },
+      { key: "resultJson", type: "varchar", size: 8000, required: false },
+      { key: "error", type: "varchar", size: 2000, required: false },
+      { key: "createdAt", type: "varchar", size: 64, required: true },
+      { key: "updatedAt", type: "varchar", size: 64, required: true },
+    ],
+    indexes: [
+      { key: "user_updatedAt", type: "key", attributes: ["userId", "updatedAt"], orders: ["ASC", "DESC"] },
+      { key: "conversation_updatedAt", type: "key", attributes: ["conversationId", "updatedAt"], orders: ["ASC", "DESC"] },
+      { key: "status_updatedAt", type: "key", attributes: ["status", "updatedAt"], orders: ["ASC", "DESC"] },
     ],
   },
 ];
@@ -333,6 +359,7 @@ async function upsertGeneratedEnv() {
   values.set("APPWRITE_STORAGE_ASSETS_COLLECTION_ID", storageAssetsCollectionId);
   values.set("APPWRITE_GENERATED_IMAGES_COLLECTION_ID", generatedImagesCollectionId);
   values.set("APPWRITE_STORAGE_USAGE_COLLECTION_ID", storageUsageCollectionId);
+  values.set("APPWRITE_IMAGE_GENERATION_JOBS_COLLECTION_ID", imageGenerationJobsCollectionId);
 
   const output = `${Array.from(values.entries())
     .map(([key, value]) => `${key}=${value}`)
@@ -361,7 +388,7 @@ async function main() {
   console.log("");
   console.log("Appwrite storage setup complete.");
   console.log(
-    `Collections: ${storageAssetsCollectionId}, ${generatedImagesCollectionId}, ${storageUsageCollectionId}`,
+    `Collections: ${storageAssetsCollectionId}, ${generatedImagesCollectionId}, ${storageUsageCollectionId}, ${imageGenerationJobsCollectionId}`,
   );
 }
 

@@ -7,7 +7,7 @@ export async function GET(request, { params }) {
     return Response.json({ error: auth.error }, { status: auth.status });
   }
 
-  const job = getImageGenerationJob(params.id);
+  const job = await getImageGenerationJob(params.id);
   if (!job) {
     return Response.json({ error: "Image generation job was not found." }, { status: 404 });
   }
