@@ -222,6 +222,10 @@ function splitAssistantTypingChunks(content) {
   return normalized.match(/[^\s]+(?:\s+)?|\n/g) || [];
 }
 
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function shouldLikelySearchWeb(content) {
   const normalized = String(content || "").toLowerCase();
   return WEB_SEARCH_HINT_KEYWORDS.some((keyword) => normalized.includes(keyword));
@@ -325,6 +329,7 @@ export default function NexaWorkspace({
   const [loadError, setLoadError] = useState("");
   const [responseLength, setResponseLength] = useState("auto");
   const [sendingActivity, setSendingActivity] = useState("");
+  const [imageGenerationStatus, setImageGenerationStatus] = useState(null);
   const [addMenuOpen, setAddMenuOpen] = useState("");
   const [activeSettingsSection, setActiveSettingsSection] = useState("general");
   const [dataControls, setDataControls] = useState({
@@ -792,6 +797,18 @@ export default function NexaWorkspace({
           ? "searching"
           : "thinking",
     );
+    setImageGenerationStatus(
+      imageGenerationRequested
+        ? {
+            title: "Thinking",
+            detail: "Planning the image design, detail, style, and aspect ratio.",
+            progress: 8,
+            status: "thinking",
+            aspectRatio: "1:1",
+            style: "image design",
+          }
+        : null,
+    );
     setLoadError("");
 
     const optimisticId = `user-${Date.now()}`;
@@ -848,6 +865,126 @@ export default function NexaWorkspace({
         }
 
         const savedUserMessage = data.userMessage ? normalizeMessage(data.userMessage) : null;
+        if (data.imageJob?.id) {
+          const imageJob = data.imageJob;
+          const pollUrl = imageJob.pollUrl || `/api/image-jobs/${imageJob.id}`;
+          const imageAssistantId = streamingAssistantId;
+
+          setSendingActivity("creating-image");
+          setImageGenerationStatus({
+            title: imageJob.title || "Thinking",
+            detail:
+              imageJob.detail ||
+              "Nexa is planning the image design, detail, style, and aspect ratio.",
+            progress: Number(imageJob.progress || 8),
+            status: imageJob.status || "queued",
+            aspectRatio: imageJob.aspect_ratio || imageJob.aspectRatio || "1:1",
+            style: imageJob.style || "image design",
+          });
+
+          setMessages((current) => {
+            const withoutOptimistic = current.filter((message) => message.id !== optimisticId);
+            return [
+              ...withoutOptimistic,
+              ...(savedUserMessage ? [savedUserMessage] : []),
+              {
+                id: imageAssistantId,
+                role: "assistant",
+                content: "",
+                sources: [],
+                sourceConfidence: "none",
+                usedWebSearch: false,
+              },
+            ];
+          });
+
+          const startedAt = Date.now();
+          while (Date.now() - startedAt < 15 * 60 * 1000) {
+            await wait(2000);
+            const jobResponse = await authorizedFetch(pollUrl);
+            const jobData = await jobResponse.json();
+
+            if (!jobResponse.ok) {
+              throw new Error(jobData.error || "Failed to check image generation status.");
+            }
+
+            const job = jobData.job || {};
+            setImageGenerationStatus({
+              title: job.title || "Designing image",
+              detail:
+                job.detail ||
+                "Nexa is planning the image design, detail, style, and aspect ratio.",
+              progress: Number(job.progress || 0),
+              status: job.status || "processing",
+              aspectRatio: job.aspect_ratio || job.aspectRatio || "1:1",
+              style: job.style || "image design",
+            });
+
+            if (job.status === "failed") {
+              throw new Error(job.error || "Image generation failed.");
+            }
+
+            if (job.status === "completed") {
+              const result = job.result || {};
+              const savedAssistantMessage = result.assistantMessage
+                ? normalizeMessage(result.assistantMessage)
+                : null;
+              const sourceConfidence = result.source_confidence || "none";
+              const usedWebSearch = result.used_web_search || false;
+              const sources = Array.isArray(result.sources) ? result.sources : [];
+
+              if (result.memory) {
+                setMemoryProfile(result.memory);
+                setMemoryDraft(draftFromMemory(result.memory));
+              }
+
+              if (result.conversation) {
+                const updatedConversation = normalizeConversation(result.conversation);
+                setConversations((current) => [
+                  updatedConversation,
+                  ...current.filter((entry) => entry.id !== updatedConversation.id),
+                ]);
+                setSearchResults((current) => {
+                  const searchConversation = {
+                    conversationId: updatedConversation.id,
+                    title: updatedConversation.title,
+                    snippet: updatedConversation.lastMessagePreview || "",
+                    updatedAt: updatedConversation.updatedAt || "",
+                    type: "conversation",
+                  };
+                  return [
+                    searchConversation,
+                    ...current.filter((entry) => entry.conversationId !== updatedConversation.id),
+                  ];
+                });
+              }
+
+              setMessages((current) =>
+                current.map((message) =>
+                  message.id === imageAssistantId
+                    ? {
+                        ...(savedAssistantMessage || message),
+                        id: imageAssistantId,
+                        content:
+                          savedAssistantMessage?.content ??
+                          sanitizeAssistantContent(result.reply || message.content),
+                        sourceConfidence,
+                        usedWebSearch,
+                        sources,
+                      }
+                    : message,
+                ),
+              );
+
+              setSendingActivity("");
+              setImageGenerationStatus(null);
+              return;
+            }
+          }
+
+          throw new Error("Image generation is still running. Try refreshing the conversation in a moment.");
+        }
+
         const savedAssistantMessage = data.assistantMessage
           ? normalizeMessage(data.assistantMessage)
           : null;
@@ -962,8 +1099,24 @@ export default function NexaWorkspace({
                     : message,
                 ),
               );
+            } else if (item.event === "progress") {
+              if (imageGenerationRequested) {
+                setSendingActivity("creating-image");
+                setImageGenerationStatus({
+                  title: item.data.title || "Designing image",
+                  detail:
+                    item.data.detail ||
+                    item.data.message ||
+                    "Nexa is planning the image design, detail, style, and aspect ratio.",
+                  progress: Number(item.data.progress || 0),
+                  status: item.data.status || "processing",
+                  aspectRatio: item.data.aspect_ratio || item.data.aspectRatio || "1:1",
+                  style: item.data.style || "image design",
+                });
+              }
             } else if (item.event === "done") {
               setSendingActivity("");
+              setImageGenerationStatus(null);
               const conversationId = item.data.conversationId || activeConversationId;
               setActiveConversationId(conversationId);
               updateConversationUrl(conversationId);
@@ -1020,6 +1173,7 @@ export default function NexaWorkspace({
                 ),
               );
             } else if (item.event === "error") {
+              setImageGenerationStatus(null);
               throw new Error(item.data.error || "Streaming failed.");
             }
           }
@@ -1036,6 +1190,7 @@ export default function NexaWorkspace({
       }
     } catch (error) {
       setSendingActivity("");
+      setImageGenerationStatus(null);
       setMessages((current) =>
         current
           .filter(
@@ -1046,6 +1201,7 @@ export default function NexaWorkspace({
       setLoadError(error.message || "Failed to send message.");
     } finally {
       setSendingActivity("");
+      setImageGenerationStatus(null);
       setIsSending(false);
     }
   }
@@ -2235,6 +2391,7 @@ export default function NexaWorkspace({
                   assistantName={memoryProfile?.displayName || assistantName}
                   isSending={isSending}
                   sendingActivity={sendingActivity}
+                  imageGenerationStatus={imageGenerationStatus}
                   conversationLoading={conversationLoading}
                 />
               )}

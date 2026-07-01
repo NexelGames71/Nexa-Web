@@ -50,10 +50,38 @@ function IconAsset({ icon, alt, className = "h-4 w-4" }) {
   return <img src={src} alt={alt} className={`${className} invert`} draggable={false} />;
 }
 
-function ImageGenerationPendingCard() {
+function ImageGenerationPendingCard({ status }) {
+  const title = status?.title || "Thinking";
+  const detail =
+    status?.detail ||
+    "Nexa is planning the image design, detail, style, and aspect ratio before rendering.";
+  const chips = [
+    status?.aspectRatio,
+    status?.style,
+    status?.status ? String(status.status).replace(/-/g, " ") : null,
+  ].filter(Boolean);
+
   return (
-    <div className="w-full max-w-[480px] space-y-3">
-      <p className="text-sm font-medium leading-6 text-ink">Creating image</p>
+    <div className="w-full max-w-[480px] space-y-4">
+      <div className="space-y-2">
+        <p className="text-sm font-semibold leading-6 text-ink">
+          {title}
+          {title !== "Thinking" ? <span className="ml-1 text-chat-muted">&gt;</span> : null}
+        </p>
+        <p className="max-w-[44rem] text-[15px] leading-7 text-ink/90">{detail}</p>
+        {chips.length ? (
+          <div className="flex flex-wrap gap-2">
+            {chips.map((chip) => (
+              <span
+                key={chip}
+                className="rounded-full border border-chat-border bg-black/[0.03] px-2.5 py-1 text-[11px] font-medium capitalize text-chat-muted"
+              >
+                {chip}
+              </span>
+            ))}
+          </div>
+        ) : null}
+      </div>
       <div className="relative aspect-square overflow-hidden rounded-[1.5rem] border border-chat-border bg-[#2d2d30] shadow-[0_20px_50px_rgba(15,23,42,0.10)]">
         <div
           className="absolute inset-0 opacity-60"
@@ -75,7 +103,7 @@ function ImageGenerationPendingCard() {
         />
         <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/18 to-transparent" />
         <div className="absolute bottom-4 left-4 rounded-full bg-black/35 px-3 py-1.5 text-xs font-medium text-white/85">
-          Generating
+          {status?.progress ? `${Math.min(99, Math.max(1, Math.round(status.progress)))}%` : "Generating"}
         </div>
         <div className="absolute bottom-3 right-3 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-black/30">
           <ThinkingDots tone="creating-image" />
@@ -690,6 +718,7 @@ export default function ChatMessages({
   assistantName,
   isSending,
   sendingActivity,
+  imageGenerationStatus,
   conversationLoading,
 }) {
   const [sourcesOpen, setSourcesOpen] = useState(false);
@@ -801,7 +830,7 @@ export default function ChatMessages({
             <article className="flex gap-4">
               <NexaMark className="h-7 w-7 shrink-0 text-xs" />
               {sendingActivity === "creating-image" ? (
-                <ImageGenerationPendingCard />
+                <ImageGenerationPendingCard status={imageGenerationStatus} />
               ) : (
                 <div>
                   <p className="mb-1 text-xs font-medium text-chat-muted">{activityLabel}</p>

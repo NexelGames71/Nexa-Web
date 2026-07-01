@@ -10,6 +10,7 @@
   updateConversationSummary,
 } from "../../../lib/server/memory";
 import { requireUserFromRequest } from "../../../lib/server/appwrite";
+import { startImageGenerationJob } from "../../../lib/server/image-generation-jobs";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 
@@ -1109,6 +1110,73 @@ function sseEvent(event, payload) {
   return encoder.encode(`event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`);
 }
 
+function inferImagePlanning(content) {
+  const prompt = String(content || "").trim();
+  const lower = prompt.toLowerCase();
+  const isIcon = /\b(icon|logo|app icon|browser icon|monogram)\b/.test(lower);
+  const isPortrait = /\b(portrait|headshot|person|face)\b/.test(lower);
+  const isWide = /\b(landscape|wide|banner|hero|16:9)\b/.test(lower);
+  const isTall = /\b(vertical|poster|phone|story|9:16)\b/.test(lower);
+  const aspectRatio = isWide ? "16:9" : isTall ? "9:16" : "1:1";
+  const style = isIcon
+    ? "premium 3D icon"
+    : isPortrait
+      ? "polished portrait"
+      : /\b(cartoon|pixar|anime|illustration)\b/.test(lower)
+        ? "illustration"
+        : /\b(realistic|photo|photorealistic)\b/.test(lower)
+          ? "realistic"
+          : "clean visual design";
+  const titleSubject = isIcon
+    ? prompt.replace(/^(create|generate|make|design)\s+/i, "").replace(/[.!?]+$/g, "")
+    : "image";
+
+  return {
+    aspectRatio,
+    style,
+    subject: titleSubject || "image",
+    title: isIcon ? `Designing ${titleSubject}` : "Designing image",
+    detail: isIcon
+      ? `Choosing a ${aspectRatio} layout with a readable focal shape, premium materials, clean silhouette, and an uncluttered background.`
+      : `Planning the composition, image detail, ${style} style, and ${aspectRatio} aspect ratio before rendering.`,
+  };
+}
+
+function buildImageProgressFrames(imagePlanning) {
+  return [
+    {
+      status: "thinking",
+      progress: 10,
+      title: "Thinking",
+      detail: `Understanding the request and deciding the image direction for ${imagePlanning.subject}.`,
+    },
+    {
+      status: "designing",
+      progress: 24,
+      title: imagePlanning.title,
+      detail: imagePlanning.detail,
+    },
+    {
+      status: "detailing",
+      progress: 42,
+      title: "Refining image details",
+      detail: `Balancing subject clarity, lighting, background, and ${imagePlanning.style} styling.`,
+    },
+    {
+      status: "rendering",
+      progress: 66,
+      title: "Generating image",
+      detail: "Rendering the image now. This can take a moment on the local model.",
+    },
+    {
+      status: "finishing",
+      progress: 84,
+      title: "Finishing image",
+      detail: "Saving the generated image and preparing it for the chat.",
+    },
+  ];
+}
+
 function parseUpstreamSseEvents(buffer) {
   const normalized = String(buffer || "").replace(/\r\n/g, "\n");
   const parts = normalized.split("\n\n");
@@ -1511,6 +1579,8 @@ export async function POST(request) {
       };
 
       if (wantsStream) {
+        const imagePlanning = inferImagePlanning(content);
+        const progressFrames = buildImageProgressFrames(imagePlanning);
         const initialConversation = {
           $id: conversationId,
           title: conversationData.conversation.title || DEFAULT_CONVERSATION_TITLE,
@@ -1518,68 +1588,72 @@ export async function POST(request) {
           lastMessagePreview: `Generating image: ${content}`.slice(0, 120),
         };
 
-        const stream = new ReadableStream({
-          async start(controller) {
-            let closed = false;
-            let progress = 8;
-
-            const send = (event, payload) => {
-              if (!closed) {
-                controller.enqueue(sseEvent(event, payload));
-              }
-            };
-
-            const keepAlive = setInterval(() => {
-              progress = Math.min(92, progress + 6);
-              send("progress", {
-                status: "processing",
-                progress,
-                message: "Generating image",
+        const job = startImageGenerationJob({
+          userId: auth.user.$id,
+          conversationId,
+          initialStatus: {
+            ...progressFrames[0],
+            aspect_ratio: imagePlanning.aspectRatio,
+            style: imagePlanning.style,
+          },
+          execute: async ({ updateProgress }) => {
+            let progressIndex = 1;
+            const progressTimer = setInterval(() => {
+              const frame =
+                progressFrames[Math.min(progressIndex, progressFrames.length - 2)];
+              progressIndex += 1;
+              updateProgress({
+                ...frame,
+                aspect_ratio: imagePlanning.aspectRatio,
+                style: imagePlanning.style,
               });
-            }, 4000);
+            }, 2000);
 
-            send("meta", {
-              conversationId,
-              conversation: initialConversation,
-              userMessage: savedUserMessage,
-              memory: initialMemory,
-            });
-            send("progress", {
-              status: "processing",
-              progress,
-              message: "Generating image",
-            });
-
+            let result;
             try {
-              const result = await runImageGeneration();
-              clearInterval(keepAlive);
-              send("progress", {
-                status: "completed",
-                progress: 100,
-                message: "Image ready",
-                image: result.image,
+              updateProgress({
+                ...progressFrames[1],
+                aspect_ratio: imagePlanning.aspectRatio,
+                style: imagePlanning.style,
               });
-              send("done", result);
-            } catch (error) {
-              clearInterval(keepAlive);
-              send("error", {
-                error: error.message || "Image generation failed.",
-              });
+              result = await runImageGeneration();
             } finally {
-              closed = true;
-              controller.close();
+              clearInterval(progressTimer);
             }
+
+            updateProgress({
+              ...progressFrames[progressFrames.length - 1],
+              aspect_ratio: imagePlanning.aspectRatio,
+              style: imagePlanning.style,
+            });
+            return result;
           },
         });
 
-        return new Response(stream, {
-          headers: {
-            "Content-Type": "text/event-stream; charset=utf-8",
-            "Cache-Control": "no-cache, no-transform",
-            Connection: "keep-alive",
-            "X-Accel-Buffering": "no",
+        return Response.json(
+          {
+            conversationId,
+            conversation: initialConversation,
+            memory: initialMemory,
+            userMessage: savedUserMessage,
+            imageJob: {
+              id: job.id,
+              status: job.status,
+              progress: job.progress,
+              title: job.title,
+              detail: job.detail,
+              aspect_ratio: job.aspect_ratio,
+              style: job.style,
+              pollUrl: `/api/image-jobs/${job.id}`,
+            },
           },
-        });
+          {
+            status: 202,
+            headers: {
+              "Cache-Control": "no-store",
+            },
+          },
+        );
       }
 
       return Response.json(await runImageGeneration());
