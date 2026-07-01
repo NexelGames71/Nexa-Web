@@ -19,7 +19,7 @@ import {
   saveStorageAssetRecord,
 } from "../../../lib/server/generated-images";
 import { startImageGenerationJob } from "../../../lib/server/image-generation-jobs";
-import { createSignedDownloadUrl, r2BucketName, uploadR2Object } from "../../../lib/server/r2";
+import { createSignedDownloadUrl, r2UserStorageBucketName, uploadR2Object } from "../../../lib/server/r2";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 const DEFAULT_MAX_NEW_TOKENS = 768;
@@ -375,11 +375,18 @@ async function persistGeneratedImageAsset(imagePayload, { userId, conversationId
       incomingBytes: sizeBytes,
     });
     await uploadR2Object({
+      bucketName: r2UserStorageBucketName,
+      bucketEnvName: "R2_USER_STORAGE_BUCKET_NAME",
       key: r2Key,
       body: imageBuffer,
       contentType: mimeType,
     });
-    const imageUrl = await createSignedDownloadUrl(r2Key, 60 * 60 * 24 * 7);
+    const imageUrl = await createSignedDownloadUrl(
+      r2Key,
+      60 * 60 * 24 * 7,
+      r2UserStorageBucketName,
+      "R2_USER_STORAGE_BUCKET_NAME",
+    );
     return {
       assetId,
       imageId,
@@ -1707,7 +1714,7 @@ export async function POST(request) {
               filename: imageResult.image.filename || `${imageResult.image.image_id}.${imageResult.image.format || "png"}`,
               mimeType: imageResult.image.mime_type || "image/png",
               sizeBytes: Number(imageResult.image.size_bytes || 0),
-              bucket: r2BucketName,
+              bucket: r2UserStorageBucketName,
               r2Key: imageResult.image.r2_key,
               visibility: "private",
             });
@@ -1725,7 +1732,7 @@ export async function POST(request) {
               seed: imageResult.image.seed ?? null,
               format: imageResult.image.format || imageExtensionFromMime(imageResult.image.mime_type),
               sizeBytes: Number(imageResult.image.size_bytes || 0),
-              bucket: r2BucketName,
+              bucket: r2UserStorageBucketName,
               r2Key: imageResult.image.r2_key,
               thumbnailKey: imageResult.image.thumbnail_key || "",
               imageUrl: imageResult.image.url || "",
