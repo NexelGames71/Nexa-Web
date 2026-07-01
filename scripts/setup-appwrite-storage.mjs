@@ -38,12 +38,16 @@ const projectId = process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID || "";
 const apiKey = process.env.APPWRITE_API_KEY || "";
 const databaseId = process.env.APPWRITE_DATABASE_ID || "";
 
+function defaultCollectionId(...parts) {
+  return parts.join("_");
+}
+
 const storageAssetsCollectionId =
-  process.env.APPWRITE_STORAGE_ASSETS_COLLECTION_ID || "storage_assets";
+  process.env.APPWRITE_STORAGE_ASSETS_COLLECTION_ID || defaultCollectionId("storage", "assets");
 const generatedImagesCollectionId =
-  process.env.APPWRITE_GENERATED_IMAGES_COLLECTION_ID || "generated_images";
+  process.env.APPWRITE_GENERATED_IMAGES_COLLECTION_ID || defaultCollectionId("generated", "images");
 const storageUsageCollectionId =
-  process.env.APPWRITE_STORAGE_USAGE_COLLECTION_ID || "storage_usage";
+  process.env.APPWRITE_STORAGE_USAGE_COLLECTION_ID || defaultCollectionId("storage", "usage");
 
 const responseFormat = "1.9.5";
 const pollIntervalMs = 1500;
