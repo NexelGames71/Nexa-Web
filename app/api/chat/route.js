@@ -237,7 +237,9 @@ function isImageGenerationPrompt(content) {
 
   const explicitImageIntent =
     /\b(create|generate|draw|paint|render|design|make|illustrate|visualize|visualise)\b.{0,80}\b(image|picture|photo|illustration|artwork|logo|poster|wallpaper|avatar|icon|sticker|scene)\b/.test(normalized) ||
-    /\b(image|picture|photo|illustration|artwork|logo|poster|wallpaper|avatar|icon|sticker)\b.{0,40}\b(of|for|showing)\b/.test(normalized);
+    /\b(image|picture|photo|illustration|artwork|logo|poster|wallpaper|avatar|icon|sticker)\b.{0,60}\b(of|for|showing|featuring|with)\b/.test(normalized) ||
+    /\b(3d|premium|modern|futuristic|minimalist|photorealistic|cartoon|anime)\b.{0,80}\b(logo|icon|avatar|poster|wallpaper|scene|image)\b/.test(normalized) ||
+    /\b(logo|icon|avatar|poster|wallpaper|scene|image)\b.{0,80}\b(featuring|with|centered|glowing|metallic|glass|studio lighting|composition)\b/.test(normalized);
 
   if (explicitImageIntent) {
     return true;

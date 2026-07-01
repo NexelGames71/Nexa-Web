@@ -243,7 +243,9 @@ function isLikelyImageGenerationPrompt(content) {
 
   const explicitImageIntent =
     /\b(create|generate|draw|paint|render|design|make|illustrate|visualize|visualise)\b.{0,90}\b(image|picture|photo|illustration|artwork|logo|poster|wallpaper|avatar|icon|sticker|scene)\b/.test(normalized) ||
-    /\b(image|picture|photo|illustration|artwork|logo|poster|wallpaper|avatar|icon|sticker)\b.{0,50}\b(of|for|showing|featuring)\b/.test(normalized);
+    /\b(image|picture|photo|illustration|artwork|logo|poster|wallpaper|avatar|icon|sticker)\b.{0,60}\b(of|for|showing|featuring|with)\b/.test(normalized) ||
+    /\b(3d|premium|modern|futuristic|minimalist|photorealistic|cartoon|anime)\b.{0,80}\b(logo|icon|avatar|poster|wallpaper|scene|image)\b/.test(normalized) ||
+    /\b(logo|icon|avatar|poster|wallpaper|scene|image)\b.{0,80}\b(featuring|with|centered|glowing|metallic|glass|studio lighting|composition)\b/.test(normalized);
 
   if (explicitImageIntent) {
     return true;
@@ -887,14 +889,6 @@ export default function NexaWorkspace({
             return [
               ...withoutOptimistic,
               ...(savedUserMessage ? [savedUserMessage] : []),
-              {
-                id: imageAssistantId,
-                role: "assistant",
-                content: "",
-                sources: [],
-                sourceConfidence: "none",
-                usedWebSearch: false,
-              },
             ];
           });
 
@@ -959,22 +953,19 @@ export default function NexaWorkspace({
                 });
               }
 
-              setMessages((current) =>
-                current.map((message) =>
-                  message.id === imageAssistantId
-                    ? {
-                        ...(savedAssistantMessage || message),
-                        id: imageAssistantId,
-                        content:
-                          savedAssistantMessage?.content ??
-                          sanitizeAssistantContent(result.reply || message.content),
-                        sourceConfidence,
-                        usedWebSearch,
-                        sources,
-                      }
-                    : message,
-                ),
-              );
+              const finalAssistantMessage = {
+                ...(savedAssistantMessage || {}),
+                id: savedAssistantMessage?.id || imageAssistantId,
+                role: "assistant",
+                content:
+                  savedAssistantMessage?.content ??
+                  sanitizeAssistantContent(result.reply || ""),
+                sourceConfidence,
+                usedWebSearch,
+                sources,
+              };
+
+              setMessages((current) => [...current, finalAssistantMessage]);
 
               setSendingActivity("");
               setImageGenerationStatus(null);
@@ -1191,13 +1182,17 @@ export default function NexaWorkspace({
     } catch (error) {
       setSendingActivity("");
       setImageGenerationStatus(null);
-      setMessages((current) =>
-        current
+      setMessages((current) => {
+        if (imageGenerationRequested) {
+          return current.filter((message) => message.id !== streamingAssistantId);
+        }
+
+        return current
           .filter(
             (message) => message.id !== optimisticId && message.id !== streamingAssistantId,
           )
-          .concat([{ id: `error-${Date.now()}`, role: "assistant", content: `Request failed: ${error.message}` }]),
-      );
+          .concat([{ id: `error-${Date.now()}`, role: "assistant", content: `Request failed: ${error.message}` }]);
+      });
       setLoadError(error.message || "Failed to send message.");
     } finally {
       setSendingActivity("");
