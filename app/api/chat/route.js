@@ -10,10 +10,16 @@
   updateConversationSummary,
 } from "../../../lib/server/memory";
 import { requireUserFromRequest } from "../../../lib/server/appwrite";
+import {
+  assertStorageQuotaAvailable,
+  buildGeneratedImageId,
+  buildStorageAssetId,
+  incrementStorageUsage,
+  saveGeneratedImageRecord,
+  saveStorageAssetRecord,
+} from "../../../lib/server/generated-images";
 import { startImageGenerationJob } from "../../../lib/server/image-generation-jobs";
-import { createSignedDownloadUrl, uploadR2Object } from "../../../lib/server/r2";
-import { mkdir, writeFile } from "node:fs/promises";
-import path from "node:path";
+import { createSignedDownloadUrl, r2BucketName, uploadR2Object } from "../../../lib/server/r2";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 const DEFAULT_MAX_NEW_TOKENS = 768;
@@ -22,9 +28,6 @@ const DEFAULT_TOP_P = 0.9;
 const MAX_CONTEXT_MESSAGES = 8;
 const TITLE_MAX_NEW_TOKENS = 12;
 const encoder = new TextEncoder();
-const SERVERLESS_READ_ONLY_FS = Boolean(
-  process.env.NETLIFY || process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME,
-);
 const CONTINUITY_SYSTEM_PROMPT = [
   "Conversation continuity rules:",
   "Treat short follow-up questions as referring to the recent conversation unless the user clearly changes topic.",
@@ -327,55 +330,71 @@ function imageExtensionFromMime(mimeType) {
   return "png";
 }
 
-async function persistGeneratedImageAsset(imagePayload, conversationId) {
+function currentStorageDateParts() {
+  const now = new Date();
+  return {
+    year: String(now.getUTCFullYear()),
+    month: String(now.getUTCMonth() + 1).padStart(2, "0"),
+  };
+}
+
+async function persistGeneratedImageAsset(imagePayload, { userId, conversationId, prompt }) {
   if (imagePayload?.url) {
-    return imagePayload.url;
+    return {
+      assetId: imagePayload.asset_id || "",
+      imageId: imagePayload.image_id || buildGeneratedImageId(),
+      imageUrl: imagePayload.url,
+      r2Key: imagePayload.r2_key || "",
+      format: imageExtensionFromMime(imagePayload.mime_type || "image/png"),
+      mimeType: imagePayload.mime_type || "image/png",
+      sizeBytes: Number(imagePayload.size_bytes || 0),
+      filename: "",
+    };
   }
 
   const b64 = imagePayload?.b64;
   if (!b64) {
-    return "";
+    throw new Error("Image generation returned no stored URL or base64 payload.");
   }
 
   const mimeType = imagePayload.mime_type || "image/png";
   const extension = imageExtensionFromMime(mimeType);
-  const safeConversationId = String(conversationId || "chat").replace(/[^a-z0-9_-]/gi, "");
-  const imageId = `${safeConversationId || "chat"}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  const fileName = `Nexa-Generated-Image-${imageId}.${extension}`;
+  const safeUserId = String(userId || "user").replace(/[^a-z0-9_-]/gi, "");
+  const imageId = buildGeneratedImageId();
+  const assetId = buildStorageAssetId();
+  const { year, month } = currentStorageDateParts();
+  const filename = `${imageId}.${extension}`;
+  const r2Key = `tenants/personal/users/${safeUserId}/images/generated/${year}/${month}/${filename}`;
   const imageBuffer = Buffer.from(b64, "base64");
-  const dataUrl = `data:${mimeType};base64,${b64}`;
+  const sizeBytes = imageBuffer.length;
 
   try {
-    const key = `generated/nexa-images/${fileName}`;
+    await assertStorageQuotaAvailable({
+      userId,
+      tenantId: "personal",
+      incomingBytes: sizeBytes,
+    });
     await uploadR2Object({
-      key,
+      key: r2Key,
       body: imageBuffer,
       contentType: mimeType,
     });
-    return await createSignedDownloadUrl(key, 60 * 60 * 24 * 7);
+    const imageUrl = await createSignedDownloadUrl(r2Key, 60 * 60 * 24 * 7);
+    return {
+      assetId,
+      imageId,
+      imageUrl,
+      r2Key,
+      format: extension,
+      mimeType,
+      sizeBytes,
+      filename,
+    };
   } catch (error) {
-    if (!SERVERLESS_READ_ONLY_FS) {
-      console.warn("Generated image R2 upload skipped:", error?.message || error);
-    }
+    throw new Error(
+      `Generated image storage failed. Configure Cloudflare R2 before using image generation in production. ${error?.message || error}`,
+    );
   }
-
-  if (SERVERLESS_READ_ONLY_FS) {
-    return dataUrl;
-  }
-
-  const relativeDir = path.join("generated", "nexa-images");
-  const absoluteDir = path.join(process.cwd(), "public", relativeDir);
-  const absolutePath = path.join(absoluteDir, fileName);
-
-  try {
-    await mkdir(absoluteDir, { recursive: true });
-    await writeFile(absolutePath, imageBuffer);
-  } catch (error) {
-    console.warn("Generated image local write failed:", error?.message || error);
-    return dataUrl;
-  }
-
-  return `/${relativeDir.replace(/\\/g, "/")}/${fileName}`;
 }
 
 async function generateBackendImage(args) {
@@ -448,7 +467,7 @@ async function generateBackendImage(args) {
   throw new Error("Image generation is still running. Try again in a moment.");
 }
 
-async function generateImageReply({ content, conversationId }) {
+async function generateImageReply({ content, conversationId, userId }) {
   const args = inferDirectImageArgs(content);
   const imagePayload = await generateBackendImage({
     ...args,
@@ -464,23 +483,43 @@ async function generateImageReply({ content, conversationId }) {
     if (!fallbackImage?.url && !fallbackImage?.b64) {
       throw new Error("Image generation completed without an image payload.");
     }
+    const stored = await persistGeneratedImageAsset(fallbackImage, {
+      userId,
+      conversationId,
+      prompt: fallbackArgs.prompt || content,
+    });
     return {
       reply: [
         `Generated image: ${fallbackImage.prompt_used || fallbackArgs.prompt || content}`,
         "",
-        `![Generated image](${await persistGeneratedImageAsset(fallbackImage, conversationId)})`,
+        `![Generated image](${stored.imageUrl})`,
       ].join("\n").trim(),
-      image: { ...fallbackImage, b64: undefined },
+      image: {
+        ...fallbackImage,
+        asset_id: stored.assetId,
+        image_id: stored.imageId,
+        url: stored.imageUrl,
+        r2_key: stored.r2Key,
+        format: stored.format,
+        mime_type: stored.mimeType || fallbackImage.mime_type,
+        size_bytes: stored.sizeBytes,
+        filename: stored.filename,
+        b64: undefined,
+      },
       warnings: Array.isArray(fallbackImage.warnings) ? fallbackImage.warnings : [],
     };
   }
 
-  const imageUrl = await persistGeneratedImageAsset(imagePayload, conversationId);
+  const stored = await persistGeneratedImageAsset(imagePayload, {
+    userId,
+    conversationId,
+    prompt: imagePayload.prompt_used || content,
+  });
   const promptUsed = imagePayload.prompt_used || content;
   const reply = [
     `Generated image: ${promptUsed}`,
     "",
-    imageUrl ? `![Generated image](${imageUrl})` : "",
+    `![Generated image](${stored.imageUrl})`,
   ]
     .filter(Boolean)
     .join("\n")
@@ -488,7 +527,18 @@ async function generateImageReply({ content, conversationId }) {
 
   return {
     reply,
-    image: { ...imagePayload, url: imageUrl || imagePayload.url || null, b64: undefined },
+    image: {
+      ...imagePayload,
+      asset_id: stored.assetId,
+      image_id: stored.imageId,
+      url: stored.imageUrl,
+      r2_key: stored.r2Key,
+      format: stored.format,
+      mime_type: stored.mimeType || imagePayload.mime_type,
+      size_bytes: stored.sizeBytes,
+      filename: stored.filename,
+      b64: undefined,
+    },
     warnings: Array.isArray(imagePayload.warnings) ? imagePayload.warnings : [],
   };
 }
@@ -1634,10 +1684,8 @@ export async function POST(request) {
       const runImageGeneration = async () => {
         const imageResult = await generateImageReply({
           content,
-          modelMessages,
           conversationId,
-          maxNewTokens,
-          modelTemperature,
+          userId: auth.user.$id,
         });
         const reply = imageResult.reply;
 
@@ -1647,6 +1695,53 @@ export async function POST(request) {
           role: "assistant",
           content: reply,
         });
+
+        if (imageResult.image?.image_id && imageResult.image?.r2_key) {
+          try {
+            await saveStorageAssetRecord({
+              assetId: imageResult.image.asset_id || "",
+              userId: auth.user.$id,
+              tenantId: "personal",
+              assetType: "image",
+              category: "generated",
+              filename: imageResult.image.filename || `${imageResult.image.image_id}.${imageResult.image.format || "png"}`,
+              mimeType: imageResult.image.mime_type || "image/png",
+              sizeBytes: Number(imageResult.image.size_bytes || 0),
+              bucket: r2BucketName,
+              r2Key: imageResult.image.r2_key,
+              visibility: "private",
+            });
+            await saveGeneratedImageRecord({
+              imageId: imageResult.image.image_id,
+              assetId: imageResult.image.asset_id || "",
+              userId: auth.user.$id,
+              tenantId: "personal",
+              conversationId,
+              messageId: savedAssistantMessage.$id || savedAssistantMessage.id || "",
+              prompt: content,
+              revisedPrompt: imageResult.image.prompt_used || content,
+              model: imageResult.image.model || "nexa-image-v1",
+              provider: imageResult.image.backend || "local",
+              seed: imageResult.image.seed ?? null,
+              format: imageResult.image.format || imageExtensionFromMime(imageResult.image.mime_type),
+              sizeBytes: Number(imageResult.image.size_bytes || 0),
+              bucket: r2BucketName,
+              r2Key: imageResult.image.r2_key,
+              thumbnailKey: imageResult.image.thumbnail_key || "",
+              imageUrl: imageResult.image.url || "",
+              status: "completed",
+              visibility: "private",
+            });
+            await incrementStorageUsage({
+              userId: auth.user.$id,
+              tenantId: "personal",
+              sizeBytes: Number(imageResult.image.size_bytes || 0),
+              assetType: "image",
+            });
+          } catch (error) {
+            console.warn("Generated image metadata save failed:", error?.message || error);
+          }
+        }
 
         const resolvedTitle = needsGeneratedTitle
           ? await generateConversationTitle(content, reply, backendConfig.system_prompt)
