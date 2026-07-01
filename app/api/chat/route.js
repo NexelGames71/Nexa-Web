@@ -19,7 +19,12 @@ import {
   saveStorageAssetRecord,
 } from "../../../lib/server/generated-images";
 import { startImageGenerationJob } from "../../../lib/server/image-generation-jobs";
-import { createSignedDownloadUrl, r2UserStorageBucketName, uploadR2Object } from "../../../lib/server/r2";
+import {
+  createSignedDownloadUrl,
+  ensureR2Config,
+  r2UserStorageBucketName,
+  uploadR2Object,
+} from "../../../lib/server/r2";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 const DEFAULT_MAX_NEW_TOKENS = 768;
@@ -404,6 +409,16 @@ async function persistGeneratedImageAsset(imagePayload, { userId, conversationId
   }
 }
 
+function assertGeneratedImageStorageConfigured() {
+  try {
+    ensureR2Config(r2UserStorageBucketName, "R2_USER_STORAGE_BUCKET_NAME");
+  } catch (error) {
+    throw new Error(
+      `Image generation storage is not configured. Add Cloudflare R2 env vars before generating images: ${error?.message || error}`,
+    );
+  }
+}
+
 async function generateBackendImage(args) {
   const jobResponse = await fetch(`${BACKEND_URL}/v1/image/jobs`, {
     method: "POST",
@@ -475,6 +490,8 @@ async function generateBackendImage(args) {
 }
 
 async function generateImageReply({ content, conversationId, userId }) {
+  assertGeneratedImageStorageConfigured();
+
   const args = inferDirectImageArgs(content);
   const imagePayload = await generateBackendImage({
     ...args,
