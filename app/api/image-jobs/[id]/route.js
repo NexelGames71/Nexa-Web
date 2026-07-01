@@ -5,6 +5,7 @@ import {
 } from "../../../../lib/server/image-generation-jobs";
 import {
   finalizeGeneratedImageJob,
+  normalizeGeneratedImagePayload,
   pollBackendImageJob,
 } from "../../../../lib/server/image-generation-flow";
 
@@ -15,10 +16,29 @@ function publicJob(job) {
 
 function normalizeBackendJob(data) {
   const job = data?.job || data || {};
+  const resultCandidates = [
+    job.result,
+    data?.result,
+    job.image,
+    data?.image,
+    job.output,
+    data?.output,
+    job.payload,
+    data?.payload,
+  ];
+  const result =
+    resultCandidates.find((candidate) => {
+      const normalized = normalizeGeneratedImagePayload(candidate);
+      return normalized.url || normalized.b64;
+    }) ||
+    job.result ||
+    data?.result ||
+    null;
+
   return {
     status: job.status || data?.status || "processing",
     progress: Number(job.progress ?? data?.progress ?? 0),
-    result: job.result || data?.result || null,
+    result,
     error: job.error || data?.error || "",
   };
 }
@@ -102,6 +122,17 @@ export async function GET(request, { params }) {
     }
 
     if (backendJob.status === "completed" && backendJob.result) {
+      const imagePayload = normalizeGeneratedImagePayload(backendJob.result);
+      if (!imagePayload.url && !imagePayload.b64) {
+        const failedJob = await updateImageGenerationJob(job.id, {
+          status: "failed",
+          progress: Math.max(Number(job.progress || 0), 95),
+          title: "Image generation failed",
+          detail: "The image model finished but did not return a usable image payload.",
+          error: "Image generation completed without a URL or base64 image payload.",
+        });
+        return Response.json({ job: publicJob(failedJob) });
+      }
       const finishingJob = await updateImageGenerationJob(job.id, {
         status: "finishing",
         progress: 96,
@@ -110,7 +141,7 @@ export async function GET(request, { params }) {
       });
       const result = await finalizeGeneratedImageJob({
         job: finishingJob,
-        imagePayload: backendJob.result,
+        imagePayload,
       });
       const completedJob = await updateImageGenerationJob(job.id, {
         status: "completed",

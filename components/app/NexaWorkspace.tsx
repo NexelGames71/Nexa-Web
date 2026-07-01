@@ -109,6 +109,11 @@ function sanitizeAssistantContent(value) {
     .trim();
 }
 
+function buildImageGenerationErrorMessage(error) {
+  const message = error?.message || "Image generation failed.";
+  return `Image generation failed: ${message}`;
+}
+
 function sanitizeAssistantStreamChunk(value) {
   return stripUnexpectedInlineCjk(repairMojibake(value)).replace(/\r\n/g, "\n");
 }
@@ -965,6 +970,10 @@ export default function NexaWorkspace({
                 sources,
               };
 
+              if (!String(finalAssistantMessage.content || "").trim() && !result.image?.url) {
+                throw new Error("Image generation completed without a renderable image response.");
+              }
+
               setMessages((current) => [...current, finalAssistantMessage]);
 
               setSendingActivity("");
@@ -1184,7 +1193,15 @@ export default function NexaWorkspace({
       setImageGenerationStatus(null);
       setMessages((current) => {
         if (imageGenerationRequested) {
-          return current.filter((message) => message.id !== streamingAssistantId);
+          return current
+            .filter((message) => message.id !== streamingAssistantId)
+            .concat([
+              {
+                id: `error-${Date.now()}`,
+                role: "assistant",
+                content: buildImageGenerationErrorMessage(error),
+              },
+            ]);
         }
 
         return current
