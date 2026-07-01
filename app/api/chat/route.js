@@ -18,7 +18,11 @@ import {
   saveGeneratedImageRecord,
   saveStorageAssetRecord,
 } from "../../../lib/server/generated-images";
-import { startImageGenerationJob } from "../../../lib/server/image-generation-jobs";
+import { createImageGenerationJob } from "../../../lib/server/image-generation-jobs";
+import {
+  assertGeneratedImageStorageConfigured as assertGeneratedImageStorageConfiguredForFlow,
+  createBackendImageJob as createBackendImageJobForFlow,
+} from "../../../lib/server/image-generation-flow";
 import {
   createSignedDownloadUrl,
   ensureR2Config,
@@ -1793,8 +1797,14 @@ export async function POST(request) {
       };
 
       if (wantsStream) {
+        assertGeneratedImageStorageConfiguredForFlow();
         const imagePlanning = inferImagePlanning(content);
         const progressFrames = buildImageProgressFrames(imagePlanning);
+        const imageArgs = inferDirectImageArgs(content);
+        const backendImageJob = await createBackendImageJobForFlow({
+          ...imageArgs,
+          raw_user_intent: content,
+        });
         const initialConversation = {
           $id: conversationId,
           title: conversationData.conversation.title || DEFAULT_CONVERSATION_TITLE,
@@ -1802,7 +1812,7 @@ export async function POST(request) {
           lastMessagePreview: `Generating image: ${content}`.slice(0, 120),
         };
 
-        const job = startImageGenerationJob({
+        const job = createImageGenerationJob({
           userId: auth.user.$id,
           conversationId,
           initialStatus: {
@@ -1810,37 +1820,16 @@ export async function POST(request) {
             aspect_ratio: imagePlanning.aspectRatio,
             style: imagePlanning.style,
           },
-          execute: async ({ updateProgress }) => {
-            let progressIndex = 1;
-            const progressTimer = setInterval(() => {
-              const frame =
-                progressFrames[Math.min(progressIndex, progressFrames.length - 2)];
-              progressIndex += 1;
-              updateProgress({
-                ...frame,
-                aspect_ratio: imagePlanning.aspectRatio,
-                style: imagePlanning.style,
-              });
-            }, 2000);
-
-            let result;
-            try {
-              updateProgress({
-                ...progressFrames[1],
-                aspect_ratio: imagePlanning.aspectRatio,
-                style: imagePlanning.style,
-              });
-              result = await runImageGeneration();
-            } finally {
-              clearInterval(progressTimer);
-            }
-
-            updateProgress({
-              ...progressFrames[progressFrames.length - 1],
-              aspect_ratio: imagePlanning.aspectRatio,
-              style: imagePlanning.style,
-            });
-            return result;
+          meta: {
+            backendJobId: backendImageJob.backendJobId,
+            content,
+            prompt: imageArgs.prompt,
+            aspectRatio: imageArgs.aspect_ratio,
+            style: imageArgs.style,
+            userMessage: savedUserMessage,
+            initialMemory,
+            conversationTitle: conversationData.conversation.title || DEFAULT_CONVERSATION_TITLE,
+            needsGeneratedTitle,
           },
         });
 

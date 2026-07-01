@@ -1,5 +1,67 @@
 import { requireUserFromRequest } from "../../../../lib/server/appwrite";
-import { getImageGenerationJob } from "../../../../lib/server/image-generation-jobs";
+import {
+  getImageGenerationJob,
+  updateImageGenerationJob,
+} from "../../../../lib/server/image-generation-jobs";
+import {
+  finalizeGeneratedImageJob,
+  pollBackendImageJob,
+} from "../../../../lib/server/image-generation-flow";
+
+function publicJob(job) {
+  const { userId, meta, ...safeJob } = job;
+  return safeJob;
+}
+
+function normalizeBackendJob(data) {
+  const job = data?.job || data || {};
+  return {
+    status: job.status || data?.status || "processing",
+    progress: Number(job.progress ?? data?.progress ?? 0),
+    result: job.result || data?.result || null,
+    error: job.error || data?.error || "",
+  };
+}
+
+function statusFrame(job, backendJob) {
+  const currentProgress = Number(job.progress || 0);
+  const backendProgress = Number(backendJob.progress || 0);
+  const progress =
+    backendProgress > 0
+      ? backendProgress
+      : currentProgress < 24
+        ? 24
+        : currentProgress < 66
+          ? 66
+          : Math.min(95, currentProgress + 1);
+
+  if (progress >= 80) {
+    return {
+      status: "finishing",
+      progress,
+      title: "Finishing image",
+      detail: "The model finished rendering. Nexa is saving the image and preparing it for chat.",
+    };
+  }
+
+  if (progress >= 50) {
+    return {
+      status: "rendering",
+      progress,
+      title: "Generating image",
+      detail: "Rendering the image now. This can take a moment on the local model.",
+    };
+  }
+
+  return {
+    status: "designing",
+    progress,
+    title: job.title || "Designing image",
+    detail:
+      job.detail ||
+      "Nexa is planning the image design, detail, style, and aspect ratio.",
+  };
+}
 
 export async function GET(request, { params }) {
   const auth = await requireUserFromRequest(request);
@@ -16,6 +78,63 @@ export async function GET(request, { params }) {
     return Response.json({ error: "Image generation job access denied." }, { status: 403 });
   }
 
-  const { userId, ...publicJob } = job;
-  return Response.json({ job: publicJob });
+  if (job.status === "completed" || job.status === "failed") {
+    return Response.json({ job: publicJob(job) });
+  }
+
+  const backendJobId = job.meta?.backendJobId;
+  if (!backendJobId) {
+    return Response.json({ job: publicJob(job) });
+  }
+
+  try {
+    const backendJob = normalizeBackendJob(await pollBackendImageJob(backendJobId));
+
+    if (backendJob.status === "failed") {
+      const failedJob = await updateImageGenerationJob(job.id, {
+        status: "failed",
+        progress: Math.max(Number(job.progress || 0), 95),
+        title: "Image generation failed",
+        detail: backendJob.error || "The image model failed before returning an image.",
+        error: backendJob.error || "Image generation failed.",
+      });
+      return Response.json({ job: publicJob(failedJob) });
+    }
+
+    if (backendJob.status === "completed" && backendJob.result) {
+      const finishingJob = await updateImageGenerationJob(job.id, {
+        status: "finishing",
+        progress: 96,
+        title: "Finishing image",
+        detail: "Saving the generated image and preparing it for the chat.",
+      });
+      const result = await finalizeGeneratedImageJob({
+        job: finishingJob,
+        imagePayload: backendJob.result,
+      });
+      const completedJob = await updateImageGenerationJob(job.id, {
+        status: "completed",
+        progress: 100,
+        title: "Image ready",
+        detail: "The generated image is ready.",
+        meta: null,
+        result,
+      });
+      return Response.json({ job: publicJob(completedJob) });
+    }
+
+    const updatedJob = await updateImageGenerationJob(job.id, {
+      ...statusFrame(job, backendJob),
+    });
+    return Response.json({ job: publicJob(updatedJob) });
+  } catch (error) {
+    const failedJob = await updateImageGenerationJob(job.id, {
+      status: "failed",
+      progress: Math.max(Number(job.progress || 0), 95),
+      title: "Image generation failed",
+      detail: error?.message || "Image generation failed.",
+      error: error?.message || "Image generation failed.",
+    });
+    return Response.json({ job: publicJob(failedJob) });
+  }
 }
