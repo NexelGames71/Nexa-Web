@@ -30,6 +30,10 @@ type BillingPlan = {
   currency: string;
   paypalProductId: string;
   paypalPlanId: string;
+  paypalSandboxProductId: string;
+  paypalSandboxPlanId: string;
+  paypalLiveProductId: string;
+  paypalLivePlanId: string;
   limits: Record<string, any>;
   features: any[];
   isPublic: boolean;
@@ -201,7 +205,7 @@ export default function AdminBillingPage() {
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <h2 className="text-lg font-semibold text-ink">{plan.name}</h2>
-                      <p className="mt-1 text-sm text-muted">{plan.paypalPlanId || "No PayPal plan ID set"}</p>
+                      <p className="mt-1 text-sm text-muted">{plan.paypalPlanId || "No active PayPal plan ID set"}</p>
                     </div>
                     <AdminStatusBadge label={plan.status} tone={statusTone(plan.status)} />
                   </div>
@@ -209,6 +213,8 @@ export default function AdminBillingPage() {
                   <div className="mt-4 grid gap-2 text-sm text-muted sm:grid-cols-2">
                     <p>Yearly: {money(plan.priceYearly, plan.currency)}</p>
                     <p>{plan.isPublic ? "Public" : "Private"}</p>
+                    <p>Sandbox: {plan.paypalSandboxPlanId || "Not synced"}</p>
+                    <p>Live: {plan.paypalLivePlanId || "Not synced"}</p>
                     <p className="sm:col-span-2">Features: {Array.isArray(plan.features) && plan.features.length ? plan.features.join(", ") : "No feature list configured"}</p>
                   </div>
                 </article>

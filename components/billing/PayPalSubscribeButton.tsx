@@ -57,6 +57,10 @@ export default function PayPalSubscribeButton() {
         setError("PayPal checkout is not configured.");
         return;
       }
+      if (!PAYPAL_PLUS_PLAN_ID) {
+        setError("Nexa Plus PayPal plan is not configured.");
+        return;
+      }
 
       try {
         await loadPayPalSdk(clientId);

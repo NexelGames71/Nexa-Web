@@ -23,6 +23,13 @@ export async function POST(request: Request) {
   }
 
   try {
+    if (!PAYPAL_PLUS_PLAN_ID) {
+      return Response.json(
+        { error: "Missing PAYPAL_PLUS_PLAN_ID for Nexa Plus checkout." },
+        { status: 500 },
+      );
+    }
+
     const body = await request.json().catch(() => ({}));
     const requestedPlanId = String(body.planId || PAYPAL_PLUS_PLAN_ID).trim();
     if (requestedPlanId !== PAYPAL_PLUS_PLAN_ID) {
