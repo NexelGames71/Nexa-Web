@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import { createSessionJwt } from "../../lib/appwrite";
 import AdminPageHeader from "./AdminPageHeader";
 import AdminPanel from "./AdminPanel";
 import {
@@ -53,8 +54,8 @@ function priorityTone(priority: string) {
   return "neutral";
 }
 
-async function fetchSupport() {
-  const response = await fetch("/api/admin/support", { cache: "no-store" });
+async function fetchSupport(authorizedFetch: (path: string, options?: RequestInit) => Promise<Response>) {
+  const response = await authorizedFetch("/api/admin/support", { cache: "no-store" });
   const data = await response.json();
   if (!response.ok) {
     throw new Error(data.error || "Failed to load support operations.");
@@ -64,6 +65,7 @@ async function fetchSupport() {
 
 export default function AdminSupportPage() {
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
+  const [authToken, setAuthToken] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
@@ -71,11 +73,38 @@ export default function AdminSupportPage() {
   const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
   const [toast, setToast] = useState("");
 
+  async function getValidAuthToken(forceRefresh = false) {
+    if (!forceRefresh && authToken) {
+      return authToken;
+    }
+
+    const jwt = await createSessionJwt();
+    setAuthToken(jwt);
+    return jwt;
+  }
+
+  async function authorizedFetch(path: string, options: RequestInit = {}) {
+    const jwt = await getValidAuthToken();
+    const headers = new Headers(options.headers || {});
+    headers.set("Authorization", `Bearer ${jwt}`);
+
+    let response = await fetch(path, { ...options, headers });
+
+    if (response.status === 401) {
+      const refreshedJwt = await getValidAuthToken(true);
+      const retryHeaders = new Headers(options.headers || {});
+      retryHeaders.set("Authorization", `Bearer ${refreshedJwt}`);
+      response = await fetch(path, { ...options, headers: retryHeaders });
+    }
+
+    return response;
+  }
+
   async function loadSupport() {
     setLoading(true);
     setError("");
     try {
-      const items = await fetchSupport();
+      const items = await fetchSupport(authorizedFetch);
       setTickets(items);
       setSelectedTicket((current) => current || items[0] || null);
     } catch (loadError: any) {
@@ -94,7 +123,7 @@ export default function AdminSupportPage() {
           ? `Internal review note added for ticket ${selectedTicket.id}.`
           : "";
 
-    const response = await fetch("/api/admin/support", {
+    const response = await authorizedFetch("/api/admin/support", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

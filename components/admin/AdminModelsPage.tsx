@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import { createSessionJwt } from "../../lib/appwrite";
 import AdminPageHeader from "./AdminPageHeader";
 import AdminPanel from "./AdminPanel";
 import {
@@ -53,8 +54,8 @@ function formatNumber(value: number) {
   return Number(value || 0).toLocaleString();
 }
 
-async function fetchModels() {
-  const response = await fetch("/api/admin/models", { cache: "no-store" });
+async function fetchModels(authorizedFetch: (path: string, options?: RequestInit) => Promise<Response>) {
+  const response = await authorizedFetch("/api/admin/models", { cache: "no-store" });
   const data = await response.json();
   if (!response.ok) {
     throw new Error(data.error || "Failed to load model registry.");
@@ -64,6 +65,7 @@ async function fetchModels() {
 
 export default function AdminModelsPage() {
   const [models, setModels] = useState<ModelRecord[]>([]);
+  const [authToken, setAuthToken] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
@@ -71,11 +73,38 @@ export default function AdminModelsPage() {
   const [selectedModel, setSelectedModel] = useState<ModelRecord | null>(null);
   const [toast, setToast] = useState("");
 
+  async function getValidAuthToken(forceRefresh = false) {
+    if (!forceRefresh && authToken) {
+      return authToken;
+    }
+
+    const jwt = await createSessionJwt();
+    setAuthToken(jwt);
+    return jwt;
+  }
+
+  async function authorizedFetch(path: string, options: RequestInit = {}) {
+    const jwt = await getValidAuthToken();
+    const headers = new Headers(options.headers || {});
+    headers.set("Authorization", `Bearer ${jwt}`);
+
+    let response = await fetch(path, { ...options, headers });
+
+    if (response.status === 401) {
+      const refreshedJwt = await getValidAuthToken(true);
+      const retryHeaders = new Headers(options.headers || {});
+      retryHeaders.set("Authorization", `Bearer ${refreshedJwt}`);
+      response = await fetch(path, { ...options, headers: retryHeaders });
+    }
+
+    return response;
+  }
+
   async function loadModels() {
     setLoading(true);
     setError("");
     try {
-      const items = await fetchModels();
+      const items = await fetchModels(authorizedFetch);
       setModels(items);
       setSelectedModel((current) => current || items[0] || null);
     } catch (loadError: any) {
