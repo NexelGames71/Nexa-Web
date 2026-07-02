@@ -1,10 +1,26 @@
 import Link from "next/link";
+import { NEXA_PLUS_PLAN } from "../../lib/billing-plans";
 import { PRICING_PLANS } from "../../lib/site-content";
 
 export default function PricingCards() {
+  const plans = PRICING_PLANS.map((plan) =>
+    plan.id === "pro"
+      ? {
+          ...plan,
+          id: NEXA_PLUS_PLAN.id,
+          name: NEXA_PLUS_PLAN.name,
+          price: NEXA_PLUS_PLAN.price,
+          period: NEXA_PLUS_PLAN.period,
+          description: NEXA_PLUS_PLAN.description,
+          features: NEXA_PLUS_PLAN.features,
+          cta: { href: "/signup", label: "Upgrade to Plus" },
+        }
+      : plan,
+  );
+
   return (
     <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-      {PRICING_PLANS.map((plan) => (
+      {plans.map((plan) => (
         <article
           key={plan.id}
           className={`flex flex-col rounded-3xl border p-6 shadow-soft ${

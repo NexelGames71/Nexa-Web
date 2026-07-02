@@ -21,8 +21,10 @@ import nextIcon from "../../assets/next.png";
 import ChatConversationItem from "./chat/ChatConversationItem";
 import ChatArchivedDropdown from "./chat/ChatArchivedDropdown";
 import { IconNewChat, IconSearch, IconSidebar, NexaMark } from "./chat/ChatIcons";
+import PayPalSubscribeButton from "../billing/PayPalSubscribeButton";
 import { notifyAuthChanged, useAuth } from "../providers/AuthProvider";
 import { isChatPinned, sortWithPinnedFirst, togglePinnedChat } from "../../lib/pinned-chats";
+import { NEXA_PLUS_PLAN } from "../../lib/billing-plans";
 import { RESPONSE_LENGTH_OPTIONS, THINKING_MODES } from "../../lib/thinking-modes";
 
 const QUICK_ACTIONS = ["Create an image", "Write or edit", "Look something up"];
@@ -287,6 +289,7 @@ const SETTINGS_SECTIONS = [
   { id: "personalization", label: "Personalization", icon: "*" },
   { id: "memory", label: "Memory", icon: "@" },
   { id: "account", label: "Account", icon: "O" },
+  { id: "billing", label: "Billing", icon: "$" },
   { id: "data-controls", label: "Data controls", icon: databaseIcon.src },
   { id: "notifications", label: "Notifications", icon: "!" },
   { id: "security", label: "Security", icon: "+" },
@@ -295,7 +298,7 @@ const SETTINGS_SECTIONS = [
 
 const SETTINGS_SECTION_BY_ROUTE = {
   profile: "account",
-  billing: "account",
+  billing: "billing",
   security: "security",
   integrations: "general",
   memory: "memory",
@@ -1597,6 +1600,8 @@ export default function NexaWorkspace({
     const settingsPath =
       section === "general" || section === "account"
         ? "/settings/profile"
+        : section === "billing"
+          ? "/settings/billing"
         : section === "data-controls"
           ? "/settings/data"
           : `/settings/${section}`;
@@ -2122,6 +2127,46 @@ export default function NexaWorkspace({
       );
     }
 
+    if (activeSettingsSection === "billing") {
+      return (
+        <div>
+          {loadError ? (
+            <div className="mb-5 rounded-[18px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+              {loadError}
+            </div>
+          ) : null}
+
+          <section className="rounded-[28px] border border-line bg-white p-5">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+              <div className="max-w-xl">
+                <div className="text-base font-medium text-ink">{NEXA_PLUS_PLAN.name}</div>
+                <div className="mt-2 flex items-end gap-2">
+                  <span className="text-3xl font-semibold text-ink">{NEXA_PLUS_PLAN.price}</span>
+                  <span className="pb-1 text-sm text-muted">{NEXA_PLUS_PLAN.period}</span>
+                </div>
+                <p className="mt-3 text-sm leading-6 text-muted">{NEXA_PLUS_PLAN.description}</p>
+                <ul className="mt-4 grid gap-2 text-sm text-ink sm:grid-cols-2">
+                  {NEXA_PLUS_PLAN.features.map((feature) => (
+                    <li key={feature} className="flex gap-2">
+                      <span aria-hidden>✓</span>
+                      <span>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="w-full max-w-sm rounded-[24px] border border-line bg-shell p-4">
+                <div className="mb-3 text-sm font-medium text-ink">Subscribe with PayPal</div>
+                <PayPalSubscribeButton />
+                <p className="mt-3 text-xs leading-5 text-muted">
+                  Your subscription is linked to {currentUser?.email || "this account"} after PayPal approval.
+                </p>
+              </div>
+            </div>
+          </section>
+        </div>
+      );
+    }
+
     const activeSectionLabel =
       SETTINGS_SECTIONS.find((section) => section.id === activeSettingsSection)?.label ||
       "Settings";
@@ -2257,6 +2302,7 @@ export default function NexaWorkspace({
                       <div className="space-y-1">
                         <button
                           type="button"
+                          onClick={() => openSettings("billing")}
                           className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-ink transition hover:bg-black/[0.03]"
                         >
                           <span className="w-4 text-center text-[15px] text-muted">*</span>
@@ -2549,6 +2595,7 @@ export default function NexaWorkspace({
                       <div className="mx-3 rounded-[22px] bg-black/[0.03] p-2">
                         <button
                           type="button"
+                          onClick={() => openSettings("billing")}
                           className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm text-ink transition hover:bg-black/[0.03]"
                         >
                           <span className="w-4 text-center text-[15px] text-muted">*</span>
