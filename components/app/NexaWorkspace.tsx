@@ -1,4 +1,4 @@
-﻿// @ts-nocheck
+// @ts-nocheck
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -21,10 +21,10 @@ import nextIcon from "../../assets/next.png";
 import ChatConversationItem from "./chat/ChatConversationItem";
 import ChatArchivedDropdown from "./chat/ChatArchivedDropdown";
 import { IconNewChat, IconSearch, IconSidebar, NexaMark } from "./chat/ChatIcons";
-import PayPalSubscribeButton from "../billing/PayPalSubscribeButton";
 import { notifyAuthChanged, useAuth } from "../providers/AuthProvider";
 import { isChatPinned, sortWithPinnedFirst, togglePinnedChat } from "../../lib/pinned-chats";
-import { NEXA_PLUS_PLAN } from "../../lib/billing-plans";
+import { BILLING_PLANS, getPlanLimitHighlights } from "../../lib/billing-plans";
+import { formatLimitValue } from "../../lib/plan-limits";
 import { RESPONSE_LENGTH_OPTIONS, THINKING_MODES } from "../../lib/thinking-modes";
 
 const QUICK_ACTIONS = ["Create an image", "Write or edit", "Look something up"];
@@ -49,41 +49,41 @@ const WEB_SEARCH_HINT_KEYWORDS = [
 ];
 
 const MOJIBAKE_REPLACEMENTS = [
-  [/Ã¢â‚¬â€/g, "â€”"],
-  [/Ã¢â‚¬â€œ/g, "â€“"],
-  [/Ã¢â‚¬Ëœ/g, "â€˜"],
-  [/Ã¢â‚¬â„¢/g, "â€™"],
-  [/Ã¢â‚¬Å“/g, "â€œ"],
-  [/Ã¢â‚¬Â/g, "â€"],
-  [/Ã¢â‚¬Â¦/g, "â€¦"],
-  [/Ã¢â‚¬Â¢/g, "â€¢"],
-  [/Ã¢Å“â€¦/g, ""],
-  [/Ã¢Å“â€Ã¯Â¸Â/g, ""],
-  [/Ã¢Å“â€¦/g, ""],
-  [/Ã¢Å“Â³Ã¯Â¸Â/g, ""],
-  [/Ã¢Å¡Â Ã¯Â¸Â/g, ""],
-  [/Ã¢ÂÅ’/g, ""],
-  [/Ã¢Ââ€œ/g, ""],
-  [/Ã¢Ââ€”/g, ""],
-  [/Ã¢ÂÂ±Ã¯Â¸Â/g, ""],
-  [/Ã°Å¸â€Â¥/g, ""],
-  [/Ã°Å¸â€Â/g, ""],
-  [/Ã°Å¸â€Â§/g, ""],
-  [/Ã°Å¸â€™Â¡/g, ""],
-  [/Ã°Å¸â€˜â€°/g, ""],
-  [/Ã°Å¸Å¡â‚¬/g, ""],
-  [/Ã°Å¸Å¸Â¢/g, ""],
-  [/Ã°Å¸Å¸Â¡/g, ""],
-  [/Ã°Å¸Å¸Â¥/g, ""],
-  [/Ã°Å¸â€Â/g, ""],
-  [/Ã°Å¸â€Â¹/g, ""],
-  [/Ã°Å¸â€Â¸/g, ""],
-  [/Ã°Å¸â€â€™/g, ""],
-  [/Ã°Å¸â€œâ€š/g, ""],
-  [/Ã°Å¸Å½Â¯/g, ""],
-  [/Ã°Å¸Å¡Â©/g, ""],
-  [/Ã°Å¸â€˜Â¥/g, ""],
-  [/Ã°Å¸â€™Â°/g, ""],
+  [/â€”/g, "—"],
+  [/â€“/g, "–"],
+  [/â€˜/g, "‘"],
+  [/â€™/g, "’"],
+  [/â€œ/g, "“"],
+  [/â€/g, "”"],
+  [/â€¦/g, "…"],
+  [/â€¢/g, "•"],
+  [/âœ…/g, ""],
+  [/âœ”ï¸/g, ""],
+  [/âœ…/g, ""],
+  [/âœ³ï¸/g, ""],
+  [/âš ï¸/g, ""],
+  [/âŒ/g, ""],
+  [/â“/g, ""],
+  [/â—/g, ""],
+  [/â±ï¸/g, ""],
+  [/ðŸ”¥/g, ""],
+  [/ðŸ”/g, ""],
+  [/ðŸ”§/g, ""],
+  [/ðŸ’¡/g, ""],
+  [/ðŸ‘‰/g, ""],
+  [/ðŸš€/g, ""],
+  [/ðŸŸ¢/g, ""],
+  [/ðŸŸ¡/g, ""],
+  [/ðŸŸ¥/g, ""],
+  [/ðŸ”/g, ""],
+  [/ðŸ”¹/g, ""],
+  [/ðŸ”¸/g, ""],
+  [/ðŸ”’/g, ""],
+  [/ðŸ“‚/g, ""],
+  [/ðŸŽ¯/g, ""],
+  [/ðŸš©/g, ""],
+  [/ðŸ‘¥/g, ""],
+  [/ðŸ’°/g, ""],
 ];
 
 function repairMojibake(value) {
@@ -94,7 +94,7 @@ function repairMojibake(value) {
 
   return text
     .replace(/\uFFFD/g, "")
-    .replace(/[â”‚â•­â•®â•¯â•°â”€â”Œâ”â””â”˜â”œâ”¤â”¬â”´â”¼]/g, "")
+    .replace(/[│╭╮╯╰─┌┐└┘├┤┬┴┼]/g, "")
     .replace(/\r\n/g, "\n");
 }
 
@@ -139,7 +139,6 @@ function isStructuredAssistantMessage(content) {
     /\n\s{2,}\S/.test(text)
   );
 }
-
 function shouldUseWideUserBubble(content) {
   const words = content.trim().split(/\s+/).filter(Boolean);
   return words.length > 0 && words.length < 17;
@@ -154,6 +153,39 @@ function createEmptyMemoryDraft() {
     facts: [],
     newFact: "",
   };
+}
+
+function planBadgeLabel(user) {
+  const planName = String(user?.planName || "").trim();
+  if (!planName || planName.toLowerCase() === "starter") {
+    return "";
+  }
+  return planName.replace(/^Nexa\s+/i, "").toUpperCase();
+}
+
+const USAGE_METRIC_LABELS = {
+  chat_messages: "Chat messages",
+  thinker_messages: "Thinker messages",
+  deep_thinker_messages: "Deep Thinker",
+  image_generations: "Image generations",
+  voice_minutes: "Voice minutes",
+  browser_workflows: "Browser workflows",
+  api_requests: "API requests",
+  memory_items: "Memory items",
+  storage_bytes: "Storage",
+};
+
+function periodLabel(periodType) {
+  if (periodType === "day") return "Today";
+  if (periodType === "month") return "This month";
+  return "Total";
+}
+
+function usagePercent(used, limit) {
+  if (!limit || limit <= 0) {
+    return 0;
+  }
+  return Math.min(100, Math.round((Number(used || 0) / Number(limit)) * 100));
 }
 
 function draftFromMemory(memory) {
@@ -351,6 +383,8 @@ export default function NexaWorkspace({
   const [dataControlsSaving, setDataControlsSaving] = useState(false);
   const [exportingData, setExportingData] = useState(false);
   const [bulkActionLoading, setBulkActionLoading] = useState("");
+  const [billingUsage, setBillingUsage] = useState(null);
+  const [billingUsageError, setBillingUsageError] = useState("");
   const [memoryProfile, setMemoryProfile] = useState(null);
   const [memoryDraft, setMemoryDraft] = useState(createEmptyMemoryDraft());
   const [pinnedRevision, setPinnedRevision] = useState(0);
@@ -438,9 +472,27 @@ export default function NexaWorkspace({
           return;
         }
 
-        setCurrentUser(user);
+        let billingProfile = null;
+        try {
+          const billingResponse = await fetch("/api/billing/me", {
+            headers: {
+              Authorization: `Bearer ${jwt}`,
+            },
+            cache: "no-store",
+          });
+          if (billingResponse.ok) {
+            billingProfile = await billingResponse.json();
+          }
+        } catch {}
+
+        setCurrentUser({
+          ...user,
+          planId: billingProfile?.plan || "starter",
+          planName: billingProfile?.planName || "Starter",
+        });
         setAuthToken(jwt);
         notifyAuthChanged();
+        void loadBillingUsage(jwt);
 
         if (configResponse.ok) {
           const config = await configResponse.json();
@@ -500,6 +552,12 @@ export default function NexaWorkspace({
       setActiveSettingsSection("general");
     }
   }, [currentUser, routeMode, router, settingsSection]);
+
+  useEffect(() => {
+    if (activeSettingsSection === "billing" && authToken) {
+      void loadBillingUsage();
+    }
+  }, [activeSettingsSection, authToken]);
 
   useEffect(() => {
     if (!addMenuOpen) {
@@ -606,6 +664,22 @@ export default function NexaWorkspace({
     }
 
     return response;
+  }
+
+  async function loadBillingUsage(tokenOverride = "") {
+    try {
+      const response = await authorizedFetch("/api/billing/usage", { cache: "no-store" }, tokenOverride);
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to load plan usage.");
+      }
+      setBillingUsage(data);
+      setBillingUsageError("");
+      return data;
+    } catch (error) {
+      setBillingUsageError(error.message || "Failed to load plan usage.");
+      return null;
+    }
   }
 
   async function loadDataControls(tokenOverride = "") {
@@ -843,6 +917,12 @@ export default function NexaWorkspace({
         const data = contentType.includes("application/json")
           ? await response.json()
           : { error: await response.text() };
+        if (data.code === "plan_limit_reached") {
+          const label = USAGE_METRIC_LABELS[data.metric] || data.metric || "This feature";
+          const resetText = data.resetAt ? ` Resets ${new Date(data.resetAt).toLocaleString()}.` : "";
+          const upgradeText = data.upgradePlan?.name ? ` Upgrade to ${data.upgradePlan.name} for more.` : "";
+          throw new Error(`${label} limit reached for ${data.plan?.name || "your plan"}.${resetText}${upgradeText}`);
+        }
         throw new Error(data.error || "Request failed.");
       }
 
@@ -1002,9 +1082,9 @@ export default function NexaWorkspace({
             ...withoutOptimistic,
             ...(savedUserMessage ? [savedUserMessage] : []),
             ...(savedAssistantMessage
-              ? [{ 
-                  ...savedAssistantMessage, 
-                  id: nonStreamingAssistantId, 
+              ? [{
+                  ...savedAssistantMessage,
+                  id: nonStreamingAssistantId,
                   content: "",
                   sourceConfidence,
                   usedWebSearch,
@@ -1153,7 +1233,7 @@ export default function NexaWorkspace({
               const savedAssistantMessage = item.data.assistantMessage
                 ? normalizeMessage(item.data.assistantMessage)
                 : null;
-              
+
               const sourceConfidence = item.data.source_confidence || "none";
               const usedWebSearch = item.data.used_web_search || false;
               const sources = Array.isArray(item.data.sources) ? item.data.sources : [];
@@ -2128,45 +2208,164 @@ export default function NexaWorkspace({
     }
 
     if (activeSettingsSection === "billing") {
+      const activePlanId = currentUser?.planId || "starter";
+      const activePlan = BILLING_PLANS.find((plan) => plan.id === activePlanId) || BILLING_PLANS[0];
+      const paidPlans = BILLING_PLANS.filter((plan) => plan.paypalEnabled);
+      const usageItems = Array.isArray(billingUsage?.items) ? billingUsage.items : [];
+
       return (
-        <div>
+        <div className="space-y-5">
           {loadError ? (
-            <div className="mb-5 rounded-[18px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+            <div className="rounded-[18px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
               {loadError}
             </div>
           ) : null}
 
           <section className="rounded-[28px] border border-line bg-white p-5">
-            <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-              <div className="max-w-xl">
-                <div className="text-base font-medium text-ink">{NEXA_PLUS_PLAN.name}</div>
-                <div className="mt-2 flex items-end gap-2">
-                  <span className="text-3xl font-semibold text-ink">{NEXA_PLUS_PLAN.price}</span>
-                  <span className="pb-1 text-sm text-muted">{NEXA_PLUS_PLAN.period}</span>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <div className="text-sm font-medium text-muted">Current plan</div>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <span className="text-2xl font-semibold text-ink">{activePlan.name}</span>
+                  {activePlan.id !== "starter" ? (
+                    <span className="rounded-full bg-ink px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-white">
+                      {activePlan.name.replace(/^Nexa\s+/i, "")}
+                    </span>
+                  ) : null}
                 </div>
-                <p className="mt-3 text-sm leading-6 text-muted">{NEXA_PLUS_PLAN.description}</p>
+                <p className="mt-2 max-w-xl text-sm leading-6 text-muted">
+                  {activePlan.id === "starter"
+                    ? "Upgrade to unlock higher limits, richer models, image generation, and priority access."
+                    : "Your subscription is active on this account. Benefits apply automatically across Nexa."}
+                </p>
+              </div>
+              <a
+                href="/checkout?plan=plus"
+                className="rounded-full bg-ink px-4 py-2 text-center text-sm font-medium text-white transition hover:opacity-90"
+              >
+                Change plan
+              </a>
+            </div>
+          </section>
+
+          <section className="rounded-[28px] border border-line bg-white p-5">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <div className="text-base font-medium text-ink">Usage</div>
+                <p className="mt-1 text-sm leading-6 text-muted">
+                  Nexa warns at 80% and only caps the specific feature that reaches 100%.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => loadBillingUsage()}
+                className="rounded-full border border-line bg-shell px-4 py-2 text-sm font-medium text-ink transition hover:border-ink"
+              >
+                Refresh
+              </button>
+            </div>
+
+            {billingUsageError ? (
+              <div className="mt-4 rounded-[18px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+                {billingUsageError}
+              </div>
+            ) : null}
+
+            <div className="mt-5 grid gap-3 lg:grid-cols-2">
+              {usageItems.length > 0 ? (
+                usageItems.map((item) => {
+                  const percent = usagePercent(item.used, item.limit);
+                  const statusClass =
+                    item.status === "capped"
+                      ? "bg-red-500"
+                      : item.status === "warning"
+                        ? "bg-amber-500"
+                        : "bg-ink";
+                  return (
+                    <article key={`${item.metric}-${item.periodType}`} className="rounded-[20px] border border-line bg-shell p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="text-sm font-medium text-ink">
+                            {USAGE_METRIC_LABELS[item.metric] || item.metric}
+                          </div>
+                          <div className="mt-1 text-xs text-muted">{periodLabel(item.periodType)}</div>
+                        </div>
+                        <span
+                          className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                            item.status === "capped"
+                              ? "bg-red-50 text-red-600"
+                              : item.status === "warning"
+                                ? "bg-amber-50 text-amber-700"
+                                : "bg-white text-muted"
+                          }`}
+                        >
+                          {item.status}
+                        </span>
+                      </div>
+                      <div className="mt-4 h-2 overflow-hidden rounded-full bg-white">
+                        <div className={`h-full rounded-full ${statusClass}`} style={{ width: `${percent}%` }} />
+                      </div>
+                      <div className="mt-2 flex items-center justify-between gap-3 text-xs text-muted">
+                        <span>
+                          {formatLimitValue(item.metric, item.used)} / {formatLimitValue(item.metric, item.limit)}
+                        </span>
+                        {item.resetAt ? <span>Resets {new Date(item.resetAt).toLocaleDateString()}</span> : null}
+                      </div>
+                    </article>
+                  );
+                })
+              ) : (
+                <div className="rounded-[20px] border border-line bg-shell p-4 text-sm text-muted">
+                  Usage appears here after you start using plan-limited features.
+                </div>
+              )}
+            </div>
+          </section>
+
+          <section className="grid gap-4 lg:grid-cols-2">
+            {paidPlans.map((plan) => (
+              <article key={plan.id} className="rounded-[24px] border border-line bg-white p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-base font-medium text-ink">{plan.name}</div>
+                    <div className="mt-2 flex items-end gap-2">
+                      <span className="text-3xl font-semibold text-ink">{plan.price}</span>
+                      <span className="pb-1 text-sm text-muted">{plan.period}</span>
+                    </div>
+                  </div>
+                  {plan.id === activePlan.id ? (
+                    <span className="rounded-full border border-line bg-shell px-3 py-1 text-xs font-medium text-ink">Active</span>
+                  ) : null}
+                </div>
+                <p className="mt-3 text-sm leading-6 text-muted">{plan.description}</p>
                 <ul className="mt-4 grid gap-2 text-sm text-ink sm:grid-cols-2">
-                  {NEXA_PLUS_PLAN.features.map((feature) => (
+                  {[...plan.features, ...getPlanLimitHighlights(plan)].map((feature) => (
                     <li key={feature} className="flex gap-2">
-                      <span aria-hidden>✓</span>
+                      <span aria-hidden>?</span>
                       <span>{feature}</span>
                     </li>
                   ))}
                 </ul>
-              </div>
-              <div className="w-full max-w-sm rounded-[24px] border border-line bg-shell p-4">
-                <div className="mb-3 text-sm font-medium text-ink">Subscribe with PayPal</div>
-                <PayPalSubscribeButton />
-                <p className="mt-3 text-xs leading-5 text-muted">
-                  Your subscription is linked to {currentUser?.email || "this account"} after PayPal approval.
-                </p>
-              </div>
-            </div>
+                <div className="mt-5">
+                  {plan.id === activePlan.id ? (
+                    <div className="rounded-full border border-line bg-shell px-4 py-3 text-center text-sm font-medium text-muted">
+                      Current plan
+                    </div>
+                  ) : (
+                    <a
+                      href={`/checkout?plan=${plan.id}`}
+                      className="block rounded-full bg-ink px-4 py-3 text-center text-sm font-medium text-white transition hover:opacity-90"
+                    >
+                      Select {plan.name.replace(/^Nexa\s+/i, "")}
+                    </a>
+                  )}
+                </div>
+              </article>
+            ))}
           </section>
         </div>
       );
     }
-
     const activeSectionLabel =
       SETTINGS_SECTIONS.find((section) => section.id === activeSettingsSection)?.label ||
       "Settings";
@@ -2292,7 +2491,14 @@ export default function NexaWorkspace({
                           <div className="truncate text-sm font-medium text-ink">
                             {currentUser.name || "User"}
                           </div>
-                          <div className="truncate text-xs text-muted">{currentUser.email}</div>
+                          <div className="mt-0.5 flex min-w-0 items-center gap-2">
+                            <span className="truncate text-xs text-muted">{currentUser.email}</span>
+                            {planBadgeLabel(currentUser) ? (
+                              <span className="shrink-0 rounded-full bg-ink px-2 py-0.5 text-[10px] font-semibold leading-none text-white">
+                                {planBadgeLabel(currentUser)}
+                              </span>
+                            ) : null}
+                          </div>
                         </div>
                         <img src={nextIcon.src} alt="" className="h-4 w-4 object-contain opacity-70" />
                       </button>
@@ -2371,7 +2577,14 @@ export default function NexaWorkspace({
                       <div className="truncate text-sm font-medium text-ink">
                         {currentUser.name || "User"}
                       </div>
-                      <div className="truncate text-xs text-chat-muted">Account</div>
+                      <div className="mt-0.5 flex min-w-0 items-center gap-2">
+                        <span className="truncate text-xs text-chat-muted">Account</span>
+                        {planBadgeLabel(currentUser) ? (
+                          <span className="shrink-0 rounded-full bg-ink px-2 py-0.5 text-[10px] font-semibold leading-none text-white">
+                            {planBadgeLabel(currentUser)}
+                          </span>
+                        ) : null}
+                      </div>
                     </div>
                   </button>
                 </>
@@ -2587,7 +2800,14 @@ export default function NexaWorkspace({
                             <div className="truncate text-sm font-medium text-ink">
                               {currentUser.name || "User"}
                             </div>
-                            <div className="truncate text-xs text-muted">{currentUser.email}</div>
+                            <div className="mt-0.5 flex min-w-0 items-center gap-2">
+                              <span className="truncate text-xs text-muted">{currentUser.email}</span>
+                              {planBadgeLabel(currentUser) ? (
+                                <span className="shrink-0 rounded-full bg-ink px-2 py-0.5 text-[10px] font-semibold leading-none text-white">
+                                  {planBadgeLabel(currentUser)}
+                                </span>
+                              ) : null}
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -2661,7 +2881,14 @@ export default function NexaWorkspace({
                       <div className="truncate text-sm font-medium text-ink">
                         {currentUser.name || "User"}
                       </div>
-                      <div className="truncate text-xs text-muted">{currentUser.email}</div>
+                      <div className="mt-0.5 flex min-w-0 items-center gap-2">
+                        <span className="truncate text-xs text-muted">{currentUser.email}</span>
+                        {planBadgeLabel(currentUser) ? (
+                          <span className="shrink-0 rounded-full bg-ink px-2 py-0.5 text-[10px] font-semibold leading-none text-white">
+                            {planBadgeLabel(currentUser)}
+                          </span>
+                        ) : null}
+                      </div>
                     </div>
                     <img src={nextIcon.src} alt="" className="h-4 w-4 object-contain opacity-70" />
                   </button>

@@ -7,8 +7,8 @@ export default function PricingPage() {
     <>
       <PageHero
         eyebrow="Pricing"
-        title="Plans for every stage"
-        subtitle="From free Starter to custom Enterprise — pick the model access and limits you need."
+        title="Simple plans for Nexa"
+        subtitle="Start free, upgrade when you need more model access, image generation, memory, team seats, or support."
         primaryCta={{ href: "/signup", label: "Start free" }}
         secondaryCta={{ href: "/enterprise", label: "Enterprise" }}
       />

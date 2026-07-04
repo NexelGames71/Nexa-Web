@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useId, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { createSessionJwt } from "../../lib/appwrite";
-import { PAYPAL_PLUS_PLAN_ID } from "../../lib/billing-plans";
+import { notifyAuthChanged } from "../providers/AuthProvider";
 
 declare global {
   interface Window {
@@ -41,7 +42,12 @@ function loadPayPalSdk(clientId: string) {
   });
 }
 
-export default function PayPalSubscribeButton() {
+type PayPalSubscribeButtonProps = {
+  planKey?: string;
+};
+
+export default function PayPalSubscribeButton({ planKey = "plus" }: PayPalSubscribeButtonProps) {
+  const router = useRouter();
   const containerId = useId().replace(/:/g, "");
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
@@ -57,11 +63,6 @@ export default function PayPalSubscribeButton() {
         setError("PayPal checkout is not configured.");
         return;
       }
-      if (!PAYPAL_PLUS_PLAN_ID) {
-        setError("Nexa Plus PayPal plan is not configured.");
-        return;
-      }
-
       try {
         await loadPayPalSdk(clientId);
         if (cancelled || !window.paypal?.Buttons) {
@@ -90,7 +91,7 @@ export default function PayPalSubscribeButton() {
                 "Content-Type": "application/json",
                 Authorization: `Bearer ${jwt}`,
               },
-              body: JSON.stringify({ planId: PAYPAL_PLUS_PLAN_ID }),
+              body: JSON.stringify({ planKey }),
             });
             const data = await response.json().catch(() => ({}));
             if (!response.ok || !data.id) {
@@ -98,9 +99,29 @@ export default function PayPalSubscribeButton() {
             }
             return data.id;
           },
-          onApprove: (data: any) => {
-            setStatus(`Subscription approved: ${data.subscriptionID}`);
+          onApprove: async (data: any) => {
             setError("");
+            setStatus("Confirming your subscription...");
+            const jwt = await createSessionJwt();
+            const response = await fetch("/api/billing/paypal/confirm", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${jwt}`,
+              },
+              body: JSON.stringify({
+                subscriptionId: data.subscriptionID,
+                planKey,
+              }),
+            });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok) {
+              throw new Error(result.error || "Subscription was approved, but Nexa could not confirm it yet.");
+            }
+            notifyAuthChanged();
+            router.push(
+              `/checkout/success?plan=${encodeURIComponent(planKey)}&subscription=${encodeURIComponent(data.subscriptionID || "")}`,
+            );
           },
           onCancel: () => {
             setStatus("Subscription checkout was cancelled.");
@@ -126,7 +147,7 @@ export default function PayPalSubscribeButton() {
         buttons?.close?.();
       } catch {}
     };
-  }, [clientId, containerId]);
+  }, [clientId, containerId, planKey, router]);
 
   return (
     <div>

@@ -15,6 +15,31 @@ export default function HomePage() {
         secondaryCta={HERO.secondaryCta}
       />
 
+      <div className="mx-auto max-w-6xl px-5 mt-4">
+        <Link
+          href="/teaser"
+          className="relative block overflow-hidden rounded-3xl border border-line bg-panel p-6 shadow-soft transition hover:-translate-y-1 hover:border-ink/30"
+        >
+          <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/5 via-purple-500/5 to-pink-500/5 opacity-60 pointer-events-none" />
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <span className="rounded-full bg-indigo-500/10 px-3 py-1 text-[10px] font-semibold text-indigo-500 uppercase tracking-widest">
+                New Launch Teaser
+              </span>
+              <h3 className="text-base font-bold text-ink mt-2">
+                Experience the Interactive Nexa AI + Nexa Web Video Teaser
+              </h3>
+              <p className="text-xs text-muted mt-1">
+                Step through the marketing script, listen to the narrator, and play with interactive UI mockups.
+              </p>
+            </div>
+            <span className="inline-flex items-center text-xs font-semibold text-ink/70 shrink-0">
+              Launch Teaser Player <span className="ml-2 text-base">→</span>
+            </span>
+          </div>
+        </Link>
+      </div>
+
       <Section
         title="Everything you need in one AI workspace"
         subtitle="Modular chat, agents, and APIs designed for humans who build."

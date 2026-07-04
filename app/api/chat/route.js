@@ -10,6 +10,7 @@
   updateConversationSummary,
 } from "../../../lib/server/memory";
 import { requireUserFromRequest } from "../../../lib/server/appwrite";
+import { getPlanLimits, PLAN_USAGE_METRICS, PLAN_USAGE_STATES } from "../../../lib/plan-limits";
 import {
   assertStorageQuotaAvailable,
   buildGeneratedImageId,
@@ -18,7 +19,15 @@ import {
   saveGeneratedImageRecord,
   saveStorageAssetRecord,
 } from "../../../lib/server/generated-images";
-import { createImageGenerationJob } from "../../../lib/server/image-generation-jobs";
+import {
+  countActiveImageGenerationJobs,
+  createImageGenerationJob,
+} from "../../../lib/server/image-generation-jobs";
+import {
+  checkPlanLimit,
+  planLimitResponse,
+  recordPlanUsage,
+} from "../../../lib/server/plan-usage";
 import {
   assertGeneratedImageStorageConfigured as assertGeneratedImageStorageConfiguredForFlow,
   createBackendImageJob as createBackendImageJobForFlow,
@@ -29,6 +38,7 @@ import {
   r2UserStorageBucketName,
   uploadR2Object,
 } from "../../../lib/server/r2";
+import { searchTavily } from "../../../lib/server/tavily";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 const DEFAULT_MAX_NEW_TOKENS = 768;
@@ -87,6 +97,42 @@ const RESPONSE_MODE_TOKEN_BUDGETS = {
   think: 1536,
   deep: 2048,
 };
+
+function responseModeFromMaxNewTokens(maxNewTokens, content) {
+  if (Number(maxNewTokens || 0) >= RESPONSE_MODE_TOKEN_BUDGETS.deep) {
+    return "deep";
+  }
+  if (Number(maxNewTokens || 0) >= RESPONSE_MODE_TOKEN_BUDGETS.think) {
+    return "think";
+  }
+  return chooseResponseMode(content);
+}
+
+function planConcurrentImageLimit(planId) {
+  const raw = getPlanLimits(planId).concurrentImageJobs;
+  if (typeof raw === "number") {
+    return raw;
+  }
+  if (raw && typeof raw === "object") {
+    return Number(raw.perSeat || raw.teamCap || 1);
+  }
+  return 1;
+}
+
+function usageWarning(result) {
+  if (!result || result.status !== PLAN_USAGE_STATES.WARNING) {
+    return null;
+  }
+  return {
+    code: "plan_limit_warning",
+    metric: result.metric,
+    plan: result.plan,
+    used: result.used + result.amount,
+    limit: result.limit,
+    resetAt: result.resetAt,
+    upgradePlan: result.upgradePlan,
+  };
+}
 
 const COMPLEXITY_KEYWORDS = [
   "explain",
@@ -218,6 +264,13 @@ const WEB_SEARCH_HINT_KEYWORDS = [
   "secretary",
   "minister",
   "defense",
+  "accurate",
+  "source",
+  "sources",
+  "cite",
+  "verify",
+  "updated",
+  "updates",
 ];
 
 const APPWRITE_TIMEOUT_MS = 4000;
@@ -238,7 +291,14 @@ function supportsStreamingBackend(url) {
 
 function shouldLikelySearchWeb(content) {
   const normalized = String(content || "").toLowerCase();
+  if (/\b(search|look up|find|verify|check)\b.{0,40}\b(web|internet|online|sources?|latest|current)\b/.test(normalized)) {
+    return true;
+  }
   return WEB_SEARCH_HINT_KEYWORDS.some((keyword) => normalized.includes(keyword));
+}
+
+function preferSourceConfidence(primary, fallback = "none") {
+  return primary && primary !== "none" ? primary : fallback || "none";
 }
 
 function isImageGenerationPrompt(content) {
@@ -1614,6 +1674,8 @@ export async function POST(request) {
     requestedMaxNewTokens > 0
       ? requestedMaxNewTokens
       : RESPONSE_MODE_TOKEN_BUDGETS[chooseResponseMode(content)] || DEFAULT_MAX_NEW_TOKENS;
+  const responseMode = responseModeFromMaxNewTokens(maxNewTokens, content);
+  const imageGenerationRequested = isImageGenerationPrompt(content);
   const wantsStream = Boolean(body.stream);
   const structuredResponseRequested = isStructuredResponsePrompt(content);
   const explanationRequested = isExplanationPrompt(content);
@@ -1623,6 +1685,62 @@ export async function POST(request) {
     : content;
   let conversationId = body.conversationId ? String(body.conversationId) : "";
   const isNewConversation = !conversationId;
+  const usageChecks = [];
+  const usageMetricsToRecord = [];
+
+  if (imageGenerationRequested) {
+    const imageLimit = await checkPlanLimit(auth.user.$id, PLAN_USAGE_METRICS.IMAGE_GENERATIONS, 1);
+    if (!imageLimit.allowed) {
+      return planLimitResponse(imageLimit);
+    }
+    usageChecks.push(imageLimit);
+    usageMetricsToRecord.push(PLAN_USAGE_METRICS.IMAGE_GENERATIONS);
+
+    const concurrentLimit = planConcurrentImageLimit(imageLimit.plan.id);
+    const activeImageJobs = await countActiveImageGenerationJobs(auth.user.$id);
+    if (concurrentLimit > 0 && activeImageJobs >= concurrentLimit) {
+      return Response.json(
+        {
+          error: "Concurrent image generation limit reached.",
+          code: "plan_limit_reached",
+          metric: "concurrent_image_jobs",
+          plan: imageLimit.plan,
+          used: activeImageJobs,
+          limit: concurrentLimit,
+          resetAt: "",
+          upgradePlan: imageLimit.upgradePlan,
+        },
+        { status: 429 },
+      );
+    }
+  } else {
+    const chatLimit = await checkPlanLimit(auth.user.$id, PLAN_USAGE_METRICS.CHAT_MESSAGES, 1);
+    if (!chatLimit.allowed) {
+      return planLimitResponse(chatLimit);
+    }
+    usageChecks.push(chatLimit);
+    usageMetricsToRecord.push(PLAN_USAGE_METRICS.CHAT_MESSAGES);
+
+    if (responseMode === "think" || responseMode === "deep") {
+      const thinkerLimit = await checkPlanLimit(auth.user.$id, PLAN_USAGE_METRICS.THINKER_MESSAGES, 1);
+      if (!thinkerLimit.allowed) {
+        return planLimitResponse(thinkerLimit);
+      }
+      usageChecks.push(thinkerLimit);
+      usageMetricsToRecord.push(PLAN_USAGE_METRICS.THINKER_MESSAGES);
+    }
+
+    if (responseMode === "deep") {
+      const deepLimit = await checkPlanLimit(auth.user.$id, PLAN_USAGE_METRICS.DEEP_THINKER_MESSAGES, 1);
+      if (!deepLimit.allowed) {
+        return planLimitResponse(deepLimit);
+      }
+      usageChecks.push(deepLimit);
+      usageMetricsToRecord.push(PLAN_USAGE_METRICS.DEEP_THINKER_MESSAGES);
+    }
+  }
+
+  const usageWarnings = usageChecks.map(usageWarning).filter(Boolean);
 
   try {
     if (!conversationId) {
@@ -1636,6 +1754,12 @@ export async function POST(request) {
       role: "user",
       content,
     });
+
+    await Promise.all(
+      usageMetricsToRecord.map((metric) =>
+        recordPlanUsage(auth.user.$id, metric, 1),
+      ),
+    );
 
     const fallbackConversationData = {
       conversation: {
@@ -1692,11 +1816,26 @@ export async function POST(request) {
       recentConversationMessages.push({ role: "user", content: currentUserPromptForModel });
     }
 
+    const webSearchResult =
+      !imageGenerationRequested && shouldLikelySearchWeb(content)
+        ? await searchTavily(content)
+        : {
+            used: false,
+            reason: "not_requested",
+            answer: "",
+            sources: [],
+            sourceConfidence: "none",
+            groundingPrompt: "",
+          };
+
     const modelMessages = [
       { role: "system", content: backendConfig.system_prompt || "You are a helpful assistant." },
       { role: "system", content: CONTINUITY_SYSTEM_PROMPT },
       { role: "system", content: GROUNDING_SYSTEM_PROMPT },
       { role: "system", content: OUTPUT_STYLE_SYSTEM_PROMPT },
+      ...(webSearchResult.groundingPrompt
+        ? [{ role: "system", content: webSearchResult.groundingPrompt }]
+        : []),
       ...(explanationRequested ? [{ role: "system", content: EXPLANATION_SYSTEM_PROMPT }] : []),
       ...(structuredResponseRequested
         ? [
@@ -1793,6 +1932,7 @@ export async function POST(request) {
           sources: [],
           image: imageResult.image,
           warnings: imageResult.warnings,
+          usageWarnings,
         };
       };
 
@@ -1849,6 +1989,7 @@ export async function POST(request) {
               style: job.style,
               pollUrl: `/api/image-jobs/${job.id}`,
             },
+            usageWarnings,
           },
           {
             status: 202,
@@ -1903,6 +2044,7 @@ export async function POST(request) {
                 conversation: initialConversation,
                 userMessage: savedUserMessage,
                 memory: initialMemory,
+                usageWarnings,
               }),
             );
 
@@ -2026,9 +2168,13 @@ export async function POST(request) {
                   memory: updatedMemory,
                   userMessage: savedUserMessage,
                   assistantMessage: savedAssistantMessage,
-                  source_confidence: backendMetadata.source_confidence,
-                  used_web_search: backendMetadata.used_web_search,
-                  sources: backendMetadata.sources,
+                  source_confidence: preferSourceConfidence(
+                    webSearchResult.sourceConfidence,
+                    backendMetadata.source_confidence,
+                  ),
+                  used_web_search: webSearchResult.used || backendMetadata.used_web_search,
+                  sources: webSearchResult.sources?.length ? webSearchResult.sources : backendMetadata.sources,
+                  usageWarnings,
                 }),
               );
             } catch (error) {
@@ -2077,13 +2223,21 @@ export async function POST(request) {
                     memory: updatedMemory,
                     userMessage: savedUserMessage,
                     assistantMessage: savedAssistantMessage,
-                    source_confidence:
-                      fallbackData.source_confidence || backendMetadata.source_confidence || "none",
+                    source_confidence: preferSourceConfidence(
+                      webSearchResult.sourceConfidence,
+                      fallbackData.source_confidence || backendMetadata.source_confidence,
+                    ),
                     used_web_search:
-                      fallbackData.used_web_search || backendMetadata.used_web_search || false,
-                    sources: Array.isArray(fallbackData.sources)
-                      ? fallbackData.sources
-                      : backendMetadata.sources,
+                      webSearchResult.used ||
+                      fallbackData.used_web_search ||
+                      backendMetadata.used_web_search ||
+                      false,
+                    sources: webSearchResult.sources?.length
+                      ? webSearchResult.sources
+                      : Array.isArray(fallbackData.sources)
+                        ? fallbackData.sources
+                        : backendMetadata.sources,
+                    usageWarnings,
                   }),
                 );
               } catch (fallbackError) {
@@ -2137,9 +2291,9 @@ export async function POST(request) {
 
     const backendData = await backendResponse.json();
     const reply = await formatAssistantReply(backendData.reply, content);
-    const sourceConfidence = backendData.source_confidence || "none";
-    const usedWebSearch = backendData.used_web_search || false;
-    const sources = backendData.sources || [];
+    const sourceConfidence = preferSourceConfidence(webSearchResult.sourceConfidence, backendData.source_confidence);
+    const usedWebSearch = webSearchResult.used || backendData.used_web_search || false;
+    const sources = webSearchResult.sources?.length ? webSearchResult.sources : backendData.sources || [];
 
     const savedAssistantMessage = await saveMessage({
       userId: auth.user.$id,
@@ -2168,6 +2322,7 @@ export async function POST(request) {
       source_confidence: sourceConfidence,
       used_web_search: usedWebSearch,
       sources,
+      usageWarnings,
     });
   } catch (error) {
     return Response.json(

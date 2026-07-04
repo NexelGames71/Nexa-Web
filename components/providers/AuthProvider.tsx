@@ -14,6 +14,8 @@ type AuthUser = {
   $id: string;
   name?: string;
   email: string;
+  planId?: string;
+  planName?: string;
 };
 
 type AuthContextValue = {
@@ -40,10 +42,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     try {
       const current = await account.get();
+      let billingProfile: any = null;
+      try {
+        const jwt = await account.createJWT();
+        const response = await fetch("/api/billing/me", {
+          headers: {
+            Authorization: `Bearer ${jwt.jwt}`,
+          },
+          cache: "no-store",
+        });
+        if (response.ok) {
+          billingProfile = await response.json();
+        }
+      } catch {}
+
       setUser({
         $id: current.$id,
         name: current.name,
         email: current.email,
+        planId: billingProfile?.plan || "starter",
+        planName: billingProfile?.planName || "Starter",
       });
     } catch {
       setUser(null);

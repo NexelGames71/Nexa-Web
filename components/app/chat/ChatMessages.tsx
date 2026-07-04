@@ -196,7 +196,15 @@ function normalizeStructuredSections(text) {
     );
   }
 
-  normalized = normalized.replace(/\s+(#{1,6}\s+)/g, "\n\n$1");
+  normalized = normalized
+    .replace(/\r\n/g, "\n")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\s+(#{1,6}\s+)/g, "\n\n$1")
+    .replace(/(^|\n)(#{1,6}\s+[^:\n]{2,120}):\s+([^\n])/g, "$1$2:\n$3")
+    .replace(/([^\n])\s+(?=\d+\.\s+[A-Z][A-Za-z0-9/&()' -]{2,80}(?:\s*[-:]|\s*$))/g, "$1\n\n")
+    .replace(/\s+[-–—]\s+(?=[A-Z][A-Za-z0-9/&()' -]{2,60}\s*(?:=|:|-|–|—))/g, "\n- ")
+    .replace(/\s+(?=(?:✅|⚠️|❌|•)\s*)/g, "\n")
+    .replace(/(^|\n)\s*---+\s*(?=\n|$)/g, "$1");
 
   for (const label of STRUCTURED_SECTION_LABELS) {
     const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -207,7 +215,7 @@ function normalizeStructuredSections(text) {
   }
 
   normalized = normalized
-    .replace(/([^\n])\n(##|###)\s/g, "$1\n\n$2 ")
+    .replace(/([^\n])\n(#{1,6})\s/g, "$1\n\n$2 ")
     .replace(/^\s*([A-Za-z][A-Za-z/&()\- ]{2,60})\s*\|\s*(.+?)\s*\|?\s*$/gm, (_, title, body) => {
       const cleanedTitle = String(title).trim();
       const cleanedBody = String(body)
@@ -227,7 +235,7 @@ function normalizeStructuredSections(text) {
 function renderInline(text) {
   const source = normalizeRenderableText(text);
   const nodes = [];
-  const pattern = /(`[^`]+`|\*\*[^*]+\*\*)/g;
+  const pattern = /(`[^`]+`|\*\*[^*]+\*\*|\*[^*\n]+\*)/g;
   let lastIndex = 0;
   let match;
 
@@ -242,6 +250,12 @@ function renderInline(text) {
         <strong key={`bold-${match.index}`} className="font-semibold text-ink">
           {token.slice(2, -2)}
         </strong>,
+      );
+    } else if (token.startsWith("*") && token.endsWith("*")) {
+      nodes.push(
+        <em key={`italic-${match.index}`} className="italic text-ink">
+          {token.slice(1, -1)}
+        </em>,
       );
     } else if (token.startsWith("`") && token.endsWith("`")) {
       nodes.push(
@@ -269,6 +283,10 @@ function renderParagraphLines(text) {
     const backendOnly = /^\s*Backend:\s*[\w.-]+\s*$/i.test(line);
 
     if (backendOnly) {
+      return null;
+    }
+
+    if (/^\s*[-–—]{3,}\s*$/.test(line)) {
       return null;
     }
 
@@ -425,14 +443,14 @@ function renderMarkdownTable(lines, key) {
   const rows = trimmed.slice(2).map(splitMarkdownRow);
 
   return (
-    <div key={key} className="overflow-x-auto">
-      <table className="min-w-full border-collapse overflow-hidden rounded-2xl border border-chat-border bg-white/[0.02] text-left text-[15px] leading-7 text-ink">
+    <div key={key} className="my-2 overflow-x-auto rounded-2xl border border-chat-border bg-white/[0.02]">
+      <table className="min-w-full border-collapse text-left text-[14px] leading-6 text-ink">
         <thead className="bg-black/[0.04]">
           <tr>
             {headers.map((header, index) => (
               <th
                 key={`header-${key}-${index}`}
-                className="border-b border-chat-border px-4 py-3 font-semibold"
+                className="border-b border-chat-border px-4 py-3 align-top font-semibold"
               >
                 {renderInline(header)}
               </th>
@@ -445,7 +463,7 @@ function renderMarkdownTable(lines, key) {
               {headers.map((_, cellIndex) => (
                 <td
                   key={`cell-${key}-${rowIndex}-${cellIndex}`}
-                  className="border-t border-chat-border px-4 py-3 whitespace-pre-wrap break-words [overflow-wrap:anywhere]"
+                  className="border-t border-chat-border px-4 py-3 align-top whitespace-pre-wrap break-words [overflow-wrap:anywhere]"
                 >
                   {renderInline(row[cellIndex] || "")}
                 </td>
@@ -556,20 +574,20 @@ function renderAssistantContent(content, options = {}) {
         return renderMarkdownTable(lines, `table-${index}-${paragraphIndex}`);
       }
 
-      const headingMatch = firstLine.match(/^(#{1,3}\s+)(.+)$/);
+      const headingMatch = firstLine.match(/^(#{1,6}\s+)(.+)$/);
       if (headingMatch) {
         const level = headingMatch[1].trim().length;
         const heading = headingMatch[2].trim();
         const rest = lines.slice(1).join("\n").trim();
         const headingClass =
           level === 1
-            ? "text-[1.1rem] font-semibold leading-8 text-ink"
+            ? "text-[1.14rem] font-semibold leading-8 text-ink"
             : level === 2
-              ? "text-[1rem] font-semibold leading-7 text-ink"
-              : "text-[0.96rem] font-semibold leading-7 text-ink";
+              ? "text-[1.06rem] font-semibold leading-7 text-ink"
+              : "text-[0.98rem] font-semibold leading-7 text-ink";
 
         return (
-          <section key={`heading-${index}-${paragraphIndex}`} className="space-y-2">
+          <section key={`heading-${index}-${paragraphIndex}`} className="space-y-2 pt-1">
             <h3 className={headingClass}>{renderInline(heading)}</h3>
             {rest ? (
               <div className="space-y-3">{renderAssistantContent(rest, options)}</div>
@@ -579,14 +597,14 @@ function renderAssistantContent(content, options = {}) {
       }
 
       const numberedSectionMatch = firstLine.match(/^(\d+)\.\s+(.+)$/);
-      if (numberedSectionMatch && lines.length > 1) {
+      if (numberedSectionMatch) {
         const sectionNumber = numberedSectionMatch[1];
-        const heading = numberedSectionMatch[2].trim();
+        const heading = numberedSectionMatch[2].replace(/\s*[-–—]\s*$/, "").trim();
         const rest = lines.slice(1).join("\n").trim();
 
         return (
-          <section key={`numbered-${index}-${paragraphIndex}`} className="space-y-3 pt-1">
-            <h2 className="text-[1.12rem] font-semibold leading-8 text-ink">
+          <section key={`numbered-${index}-${paragraphIndex}`} className="space-y-2 pt-1">
+            <h2 className="text-[1.04rem] font-semibold leading-8 text-ink">
               <span className="mr-2">{sectionNumber}.</span>
               <span>{renderInline(heading)}</span>
             </h2>
@@ -658,6 +676,22 @@ function renderAssistantContent(content, options = {}) {
               </li>
             ))}
           </ListTag>
+        );
+      }
+
+      const softBulletLines = lines.filter((line) => /^(✅|⚠️|❌|•)\s*/.test(line.trim()));
+      if (softBulletLines.length === lines.length) {
+        return (
+          <ul
+            key={`soft-list-${index}-${paragraphIndex}`}
+            className="space-y-2 pl-0 text-[15px] leading-7 text-ink break-words [overflow-wrap:anywhere]"
+          >
+            {lines.map((line, itemIndex) => (
+              <li key={`soft-item-${index}-${paragraphIndex}-${itemIndex}`}>
+                {renderInline(line.replace(/^(✅|⚠️|❌|•)\s*/, ""))}
+              </li>
+            ))}
+          </ul>
         );
       }
 

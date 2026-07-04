@@ -1,5 +1,6 @@
-import { NEXA_PLUS_PLAN, PAYPAL_PLUS_PLAN_ID } from "../../../../../lib/billing-plans";
+import { getBillingPlan, getPayPalPlanId } from "../../../../../lib/billing-plans";
 import { requireUserFromRequest } from "../../../../../lib/server/appwrite";
+import { getBillingProfileForUser } from "../../../../../lib/server/billing";
 import { createPayPalSubscription } from "../../../../../lib/server/paypal";
 
 function siteOrigin(request: Request) {
@@ -23,24 +24,42 @@ export async function POST(request: Request) {
   }
 
   try {
-    if (!PAYPAL_PLUS_PLAN_ID) {
+    const body = await request.json().catch(() => ({}));
+    const requestedPlanKey = String(body.planKey || body.planId || "plus").trim().toLowerCase();
+    const plan = getBillingPlan(requestedPlanKey);
+
+    if (!plan || !plan.paypalEnabled) {
+      return Response.json({ error: "Unsupported checkout plan." }, { status: 400 });
+    }
+
+    const billingProfile = await getBillingProfileForUser((auth as any).user.$id);
+    if (billingProfile.plan === plan.id) {
       return Response.json(
-        { error: "Missing PAYPAL_PLUS_PLAN_ID for Nexa Plus checkout." },
+        {
+          error: `You are already subscribed to ${plan.name}. Choose a different plan to change your subscription.`,
+          code: "same_plan_subscription",
+          currentPlan: {
+            id: billingProfile.plan,
+            name: billingProfile.planName,
+          },
+        },
+        { status: 409 },
+      );
+    }
+
+    const paypalPlanId = getPayPalPlanId(plan.id);
+    if (!paypalPlanId) {
+      return Response.json(
+        { error: `Missing PayPal plan ID for ${plan.name}.` },
         { status: 500 },
       );
     }
 
-    const body = await request.json().catch(() => ({}));
-    const requestedPlanId = String(body.planId || PAYPAL_PLUS_PLAN_ID).trim();
-    if (requestedPlanId !== PAYPAL_PLUS_PLAN_ID) {
-      return Response.json({ error: "Unsupported PayPal plan." }, { status: 400 });
-    }
-
     const origin = siteOrigin(request);
     const subscription = await createPayPalSubscription({
-      planId: PAYPAL_PLUS_PLAN_ID,
-      returnUrl: `${origin}/settings/billing?paypal=success`,
-      cancelUrl: `${origin}/settings/billing?paypal=cancelled`,
+      planId: paypalPlanId,
+      returnUrl: `${origin}/checkout/success?plan=${encodeURIComponent(plan.id)}`,
+      cancelUrl: `${origin}/checkout?plan=${encodeURIComponent(plan.id)}&paypal=cancelled`,
       customId: (auth as any).user.$id,
     });
 
@@ -48,9 +67,9 @@ export async function POST(request: Request) {
       id: subscription.id,
       status: subscription.status,
       plan: {
-        id: NEXA_PLUS_PLAN.id,
-        name: NEXA_PLUS_PLAN.name,
-        paypalPlanId: PAYPAL_PLUS_PLAN_ID,
+        id: plan.id,
+        name: plan.name,
+        paypalPlanId,
       },
       links: subscription.links || [],
     });

@@ -37,6 +37,7 @@ const collectionIds = {
   modelUsage: process.env.APPWRITE_MODEL_USAGE_COLLECTION_ID || defaultCollectionId("model", "usage"),
   billingPlans:
     process.env.APPWRITE_BILLING_PLANS_COLLECTION_ID || defaultCollectionId("billing", "plans"),
+  planUsage: process.env.APPWRITE_PLAN_USAGE_COLLECTION_ID || defaultCollectionId("plan", "usage"),
   subscriptions:
     process.env.APPWRITE_SUBSCRIPTIONS_COLLECTION_ID || defaultCollectionId("billing", "subscriptions"),
   payments:
@@ -119,6 +120,29 @@ const collections = [
     indexes: [
       key("planId_unique", "unique", ["planId"]),
       key("status_public", "key", ["status", "isPublic"]),
+    ],
+  },
+  {
+    id: collectionIds.planUsage,
+    name: "Plan Usage",
+    attributes: [
+      varchar("userId", 64, true),
+      varchar("tenantId", 64, true),
+      varchar("planId", 80, true),
+      varchar("metric", 80, true),
+      varchar("periodType", 32, true),
+      varchar("periodStart", 64, true),
+      integer("used", true),
+      integer("limit", false),
+      varchar("status", 32, true),
+      varchar("resetAt", 64, false),
+      varchar("createdAt", 64, true),
+      varchar("updatedAt", 64, true),
+    ],
+    indexes: [
+      key("usage_unique", "unique", ["userId", "metric", "periodType", "periodStart"]),
+      key("user_metric", "key", ["userId", "metric"]),
+      key("status_updatedAt", "key", ["status", "updatedAt"]),
     ],
   },
   {

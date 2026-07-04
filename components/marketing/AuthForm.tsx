@@ -32,7 +32,7 @@ export default function AuthForm({
   useEffect(() => {
     async function init() {
       if (!appwriteConfigured) {
-        setAuthError("Missing NEXT_PUBLIC_APPWRITE_PROJECT_ID in .env.local.");
+        setAuthError("Nexa authentication is not configured for this deployment.");
         setAuthLoading(false);
         return;
       }

@@ -11,6 +11,7 @@ export default function PublicNav() {
 
   const chatHref = isAdmin ? "/admin" : "/chat";
   const initial = (user?.name || user?.email || "U").slice(0, 1).toUpperCase();
+  const planLabel = user?.planName && user.planName !== "Starter" ? user.planName : "";
 
   return (
     <header className="sticky top-0 z-50 border-b border-line/80 bg-shell/90 backdrop-blur-md">
@@ -52,6 +53,11 @@ export default function PublicNav() {
                 <span className="max-w-[120px] truncate text-ink">
                   {user?.name || user?.email?.split("@")[0]}
                 </span>
+                {planLabel ? (
+                  <span className="rounded-full bg-ink px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-white">
+                    {planLabel.replace(/^Nexa\s+/i, "")}
+                  </span>
+                ) : null}
               </Link>
               <button
                 type="button"
