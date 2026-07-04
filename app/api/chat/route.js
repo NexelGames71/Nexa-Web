@@ -301,6 +301,35 @@ function preferSourceConfidence(primary, fallback = "none") {
   return primary && primary !== "none" ? primary : fallback || "none";
 }
 
+function currentAnswerDate() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function buildWebGroundedUserPrompt(content, webSearchResult) {
+  if (!webSearchResult?.used) {
+    return content;
+  }
+
+  const sourceNames = webSearchResult.sources
+    .slice(0, 6)
+    .map((source, index) => `${index + 1}. ${source.title || source.domain || source.url}`)
+    .join("\n");
+
+  return [
+    `User question: ${content}`,
+    "",
+    `Today is ${currentAnswerDate()}. Answer using the fresh web context already provided above.`,
+    "Requirements:",
+    "- Treat the web context as newer than model memory.",
+    "- Do not answer from old training data if the sources say something different.",
+    "- Mention the source names naturally for important current facts.",
+    "- If the search results are weak or incomplete, say that clearly.",
+    sourceNames ? `Available source names:\n${sourceNames}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
 function isImageGenerationPrompt(content) {
   const normalized = String(content || "")
     .toLowerCase()
@@ -1798,24 +1827,6 @@ export async function POST(request) {
       conversationData.conversation.title === DEFAULT_CONVERSATION_TITLE;
 
     const memoryPrompt = buildMemorySystemPrompt(initialMemory);
-    const recentConversationMessages = conversationData.messages
-      .slice(-MAX_CONTEXT_MESSAGES)
-      .map((message) => ({
-        role: message.role,
-        content: message.content,
-      }));
-
-    if (recentConversationMessages.length > 0) {
-      const lastMessage = recentConversationMessages[recentConversationMessages.length - 1];
-      if (lastMessage.role === "user" && String(lastMessage.content || "").trim() === content) {
-        lastMessage.content = currentUserPromptForModel;
-      } else {
-        recentConversationMessages.push({ role: "user", content: currentUserPromptForModel });
-      }
-    } else {
-      recentConversationMessages.push({ role: "user", content: currentUserPromptForModel });
-    }
-
     const webSearchResult =
       !imageGenerationRequested && shouldLikelySearchWeb(content)
         ? await searchTavily(content)
@@ -1827,6 +1838,35 @@ export async function POST(request) {
             sourceConfidence: "none",
             groundingPrompt: "",
           };
+    if (!imageGenerationRequested && shouldLikelySearchWeb(content)) {
+      console.info("Tavily web search", {
+        used: webSearchResult.used,
+        reason: webSearchResult.reason,
+        sourceCount: webSearchResult.sources.length,
+      });
+    }
+
+    const promptForModel = webSearchResult.used
+      ? buildWebGroundedUserPrompt(currentUserPromptForModel, webSearchResult)
+      : currentUserPromptForModel;
+
+    const recentConversationMessages = conversationData.messages
+      .slice(-MAX_CONTEXT_MESSAGES)
+      .map((message) => ({
+        role: message.role,
+        content: message.content,
+      }));
+
+    if (recentConversationMessages.length > 0) {
+      const lastMessage = recentConversationMessages[recentConversationMessages.length - 1];
+      if (lastMessage.role === "user" && String(lastMessage.content || "").trim() === content) {
+        lastMessage.content = promptForModel;
+      } else {
+        recentConversationMessages.push({ role: "user", content: promptForModel });
+      }
+    } else {
+      recentConversationMessages.push({ role: "user", content: promptForModel });
+    }
 
     const modelMessages = [
       { role: "system", content: backendConfig.system_prompt || "You are a helpful assistant." },
