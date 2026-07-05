@@ -274,6 +274,8 @@ const WEB_SEARCH_HINT_KEYWORDS = [
 ];
 
 const APPWRITE_TIMEOUT_MS = 4000;
+const BACKEND_STREAM_OPEN_TIMEOUT_MS = Number(process.env.BACKEND_STREAM_OPEN_TIMEOUT_MS || 15000);
+const BACKEND_CHAT_TIMEOUT_MS = Number(process.env.BACKEND_CHAT_TIMEOUT_MS || 90000);
 
 function supportsStreamingBackend(url) {
   try {
@@ -1527,6 +1529,25 @@ async function withTimeout(promise, timeoutMs, fallbackValue) {
   }
 }
 
+async function fetchBackendWithTimeout(url, options = {}, timeoutMs = BACKEND_CHAT_TIMEOUT_MS, label = "Backend request") {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw new Error(`${label} timed out after ${Math.round(timeoutMs / 1000)} seconds.`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 function cleanTitle(title) {
   return String(title || "")
     .replace(/["'`]/g, "")
@@ -2045,22 +2066,6 @@ export async function POST(request) {
 
     if (wantsStream && shouldUseStreamingBackend(content)) {
       try {
-        const backendResponse = await fetch(`${BACKEND_URL}/chat/stream`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            messages: modelMessages,
-            max_new_tokens: maxNewTokens,
-            temperature: modelTemperature,
-            top_p: DEFAULT_TOP_P,
-          }),
-          cache: "no-store",
-        });
-
-        if (!backendResponse.ok || !backendResponse.body) {
-          throw new Error("Streaming backend unavailable.");
-        }
-
         const initialConversation = {
           $id: conversationId,
           title: conversationData.conversation.title || DEFAULT_CONVERSATION_TITLE,
@@ -2072,11 +2077,10 @@ export async function POST(request) {
           async start(controller) {
             let reply = "";
             let backendMetadata = { used_web_search: false, source_confidence: "none", sources: [] };
-            const reader = backendResponse.body.getReader();
+            let reader = null;
             const decoder = new TextDecoder();
             let buffer = "";
-            const backendContentType = backendResponse.headers.get("Content-Type") || "";
-            const upstreamIsSse = backendContentType.includes("text/event-stream");
+            let upstreamIsSse = false;
 
             controller.enqueue(
               sseEvent("meta", {
@@ -2089,6 +2093,31 @@ export async function POST(request) {
             );
 
             try {
+              const backendResponse = await fetchBackendWithTimeout(
+                `${BACKEND_URL}/chat/stream`,
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    messages: modelMessages,
+                    max_new_tokens: maxNewTokens,
+                    temperature: modelTemperature,
+                    top_p: DEFAULT_TOP_P,
+                  }),
+                  cache: "no-store",
+                },
+                BACKEND_STREAM_OPEN_TIMEOUT_MS,
+                "Streaming backend",
+              );
+
+              if (!backendResponse.ok || !backendResponse.body) {
+                throw new Error("Streaming backend unavailable.");
+              }
+
+              reader = backendResponse.body.getReader();
+              const backendContentType = backendResponse.headers.get("Content-Type") || "";
+              upstreamIsSse = backendContentType.includes("text/event-stream");
+
               while (true) {
                 const { done, value } = await reader.read();
                 if (done) {
@@ -2218,18 +2247,33 @@ export async function POST(request) {
                 }),
               );
             } catch (error) {
-              try {
-                const fallbackResponse = await fetch(`${BACKEND_URL}/chat`, {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    messages: modelMessages,
-                    max_new_tokens: maxNewTokens,
-                    temperature: modelTemperature,
-                    top_p: DEFAULT_TOP_P,
+              if (String(error?.message || "").startsWith("Streaming backend timed out")) {
+                controller.enqueue(
+                  sseEvent("error", {
+                    error: error.message,
+                    conversationId,
                   }),
-                  cache: "no-store",
-                });
+                );
+                return;
+              }
+
+              try {
+                const fallbackResponse = await fetchBackendWithTimeout(
+                  `${BACKEND_URL}/chat`,
+                  {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      messages: modelMessages,
+                      max_new_tokens: maxNewTokens,
+                      temperature: modelTemperature,
+                      top_p: DEFAULT_TOP_P,
+                    }),
+                    cache: "no-store",
+                  },
+                  BACKEND_CHAT_TIMEOUT_MS,
+                  "Chat backend fallback",
+                );
 
                 if (!fallbackResponse.ok) {
                   throw new Error(await fallbackResponse.text());
@@ -2309,17 +2353,22 @@ export async function POST(request) {
       }
     }
 
-    const backendResponse = await fetch(`${BACKEND_URL}/chat`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        messages: modelMessages,
-        max_new_tokens: maxNewTokens,
-        temperature: modelTemperature,
-        top_p: DEFAULT_TOP_P,
-      }),
-      cache: "no-store",
-    });
+    const backendResponse = await fetchBackendWithTimeout(
+      `${BACKEND_URL}/chat`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: modelMessages,
+          max_new_tokens: maxNewTokens,
+          temperature: modelTemperature,
+          top_p: DEFAULT_TOP_P,
+        }),
+        cache: "no-store",
+      },
+      BACKEND_CHAT_TIMEOUT_MS,
+      "Chat backend",
+    );
 
     if (!backendResponse.ok) {
       const failureText = await backendResponse.text();
