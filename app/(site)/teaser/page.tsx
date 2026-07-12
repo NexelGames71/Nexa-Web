@@ -15,7 +15,6 @@ interface VoiceSample {
   name: string;
   source: string;
   description: string;
-  format: string;
 }
 
 const NEXA_FACTS = [
@@ -30,57 +29,49 @@ const VOICE_SAMPLES: VoiceSample[] = [
     id: "nexa",
     name: "Nexa Voice",
     source: "/voices/nexa-voice-nexa.wav",
-    description: "Core Nexa voice reference from the Nexa_Voice library.",
-    format: "WAV"
+    description: "Core Nexa voice reference prepared for the product teaser."
   },
   {
     id: "brad",
     name: "Brad Voice",
     source: "/voices/nexa-voice-brad.wav",
-    description: "Brad WAV reference from the Nexa_Voice library.",
-    format: "WAV"
+    description: "Brad voice reference prepared for the product teaser."
   },
   {
     id: "clara",
     name: "Clara Voice",
     source: "/voices/nexa-voice-clara.wav",
-    description: "Clara WAV reference from the Nexa_Voice library.",
-    format: "WAV"
+    description: "Clara voice reference prepared for the product teaser."
   },
   {
     id: "corey",
     name: "Corey Voice",
     source: "/voices/nexa-voice-corey.wav",
-    description: "Corey WAV reference from the Nexa_Voice library.",
-    format: "WAV"
+    description: "Corey voice reference prepared for the product teaser."
   },
   {
     id: "tyler",
     name: "Tyler Voice",
     source: "/voices/nexa-voice-tyler.wav",
-    description: "Tyler WAV reference from the Nexa_Voice library.",
-    format: "WAV"
+    description: "Tyler voice reference prepared for the product teaser."
   },
   {
     id: "candidate-1",
     name: "Nexa Candidate 1",
     source: "/voices/nexa-voice-candidate-1.wav",
-    description: "Candidate WAV voice captured in the Nexa_Voice root folder.",
-    format: "WAV"
+    description: "Candidate voice reference prepared for the product teaser."
   },
   {
     id: "candidate-2",
     name: "Nexa Candidate 2",
     source: "/voices/nexa-voice-candidate-2.wav",
-    description: "Candidate WAV voice captured in the Nexa_Voice root folder.",
-    format: "WAV"
+    description: "Candidate voice reference prepared for the product teaser."
   },
   {
     id: "candidate-3",
     name: "Nexa Candidate 3",
     source: "/voices/nexa-voice-candidate-3.wav",
-    description: "Candidate WAV voice captured in the Nexa_Voice root folder.",
-    format: "WAV"
+    description: "Candidate voice reference prepared for the product teaser."
   }
 ];
 
@@ -177,7 +168,7 @@ export default function TeaserPage() {
   const activeScene = SCENES[activeSceneIndex];
   const selectedVoiceSample = VOICE_SAMPLES.find((sample) => sample.id === selectedVoiceSampleId) || VOICE_SAMPLES[0];
 
-  // Nexa WAV narrator manager.
+  // Keeps the selected Nexa voice in sync with the cinematic scene player.
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -382,22 +373,21 @@ export default function TeaserPage() {
               </div>
             </div>
 
-            {/* Right Column: Audio & Script Text Container */}
+            {/* Right Column: Voice And Product Context */}
             <div className="lg:col-span-5 flex flex-col gap-6">
-              {/* Narration Controls Card */}
               <div className="rounded-3xl border border-white/10 bg-zinc-900/20 p-6 backdrop-blur-md">
                 <h3 className="text-sm font-bold text-white uppercase tracking-wider">
-                  Nexa WAV narrator
+                  Nexa voice preview
                 </h3>
                 <p className="mt-1 text-xs text-zinc-400">
-                  Select a real WAV voice from Nexa_Voice. The chosen voice drives the teaser script playback.
+                  Choose a Nexa voice for the interactive browser teaser.
                 </p>
 
                 <div className="mt-4 flex flex-col gap-4">
                   <div className="rounded-2xl border border-white/10 bg-zinc-950/60 p-4">
                     <div className="flex flex-col gap-3">
                       <label className="text-xs font-semibold uppercase tracking-widest text-zinc-500">
-                        AI voice sample
+                        Voice
                       </label>
                       <select
                         value={selectedVoiceSampleId}
@@ -406,7 +396,7 @@ export default function TeaserPage() {
                       >
                         {VOICE_SAMPLES.map((sample) => (
                           <option key={sample.id} value={sample.id}>
-                            {sample.name} ({sample.format})
+                            {sample.name}
                           </option>
                         ))}
                       </select>
@@ -426,9 +416,8 @@ export default function TeaserPage() {
                     </div>
                   </div>
 
-                  {/* Playback Speed controls */}
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-zinc-400">WAV playback speed</span>
+                    <span className="text-xs text-zinc-400">Playback speed</span>
                     <div className="flex gap-1.5">
                       {[1, 1.25, 1.5].map((speed) => (
                         <button
@@ -446,7 +435,6 @@ export default function TeaserPage() {
                 </div>
               </div>
 
-              {/* Script Text Box */}
               <div className="rounded-3xl border border-white/10 bg-zinc-900/20 p-6 backdrop-blur-md">
                 <h3 className="text-[11px] font-bold uppercase tracking-wider text-zinc-500">
                   Visual direction
@@ -476,7 +464,7 @@ export default function TeaserPage() {
                   </div>
                 </div>
 
-                {/* Voiceover Details (Right Col) */}
+                {/* Product Details (Right Col) */}
                 <div className="lg:col-span-7 flex flex-col justify-between">
                   <div>
                     <div className="flex items-center justify-between">
@@ -489,9 +477,9 @@ export default function TeaserPage() {
                     </div>
 
                     <div className="mt-4 space-y-3">
-                      {scene.voiceover.map((voiceLine, lineIdx) => (
-                        <div key={lineIdx} className="flex gap-3">
-                          <span className="text-zinc-600 text-xs font-mono mt-1 shrink-0">{`[VO-${lineIdx + 1}]`}</span>
+                      {scene.voiceover.map((voiceLine) => (
+                        <div key={voiceLine} className="flex gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+                          <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-400" />
                           <p className="text-sm leading-relaxed text-zinc-200">
                             {voiceLine}
                           </p>
