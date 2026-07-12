@@ -10,12 +10,12 @@ import {
 
 const ACTIVE_NEXA_MODELS = [
   {
-    modelId: "nexa-qwen3-4b-instruct-private",
-    name: "Nexa Qwen3 4B Instruct",
+    modelId: "nexa-ember-0-5",
+    name: "Ember 0.5",
     type: "Text / Chat",
-    provider: "Nexa Local Transformers",
+    provider: "Nexa Private Runtime",
     status: "active",
-    version: "Qwen3-4B-Instruct-2507",
+    version: "Ember 0.5",
     contextWindow: 262144,
     maxOutputTokens: 8192,
     planAccess: ["Free", "Plus", "Pro", "Business"],
@@ -25,7 +25,7 @@ const ACTIVE_NEXA_MODELS = [
       "tool routing",
       "browser assistance",
       "Fast / Thinker / Deep Thinker",
-      "CUDA-aware local inference",
+      "CUDA-aware private inference",
     ],
     endpoint: "/chat, /chat/stream, /v1/chat/completions",
     runtime: "C:\\Nexa private model API",

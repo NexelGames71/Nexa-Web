@@ -18,10 +18,10 @@ interface VoiceSample {
 }
 
 const NEXA_FACTS = [
-  { label: "Private model runtime", value: "Qwen3 local inference with CUDA acceleration" },
+  { label: "Private model runtime", value: "Ember 0.5 private inference with CUDA acceleration" },
   { label: "Core workspace", value: "Chat, memory, image generation, search, billing, and admin controls" },
   { label: "Browser direction", value: "Page reading, summaries, tab-aware assistance, and workflow automation" },
-  { label: "Voice stack", value: "F5-TTS and Qwen3-TTS research models prepared for Nexa Voice" }
+  { label: "Voice stack", value: "Nexa voice models prepared for guided voice interaction" }
 ];
 
 const VOICE_SAMPLES: VoiceSample[] = [

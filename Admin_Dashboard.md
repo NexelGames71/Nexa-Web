@@ -465,9 +465,9 @@ Failover strategy
 
 Example:
 
-90% Fast traffic → Nexa-Fast-v1
-10% Fast traffic → Nexa-Fast-v2 experimental
-Fallback → Qwen local model
+90% Fast traffic → Ember 0.5
+10% Fast traffic → Ember 1.0 experimental
+Fallback → previous approved Nexa model
 Plan Access Controls
 
 Allow admins to configure model access by plan:
