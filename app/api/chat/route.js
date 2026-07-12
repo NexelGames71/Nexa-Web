@@ -61,6 +61,8 @@ const MAX_STREAM_CONTEXT_MESSAGES = 3;
 const STREAM_MESSAGE_CHAR_LIMIT = 1400;
 const TITLE_MAX_NEW_TOKENS = 12;
 const encoder = new TextEncoder();
+let backendConfigCache = null;
+let backendConfigCacheExpiresAt = 0;
 const NEXA_CORE_SYSTEM_PROMPT = [
   "You are Nexa, an AI assistant developed by Nexa Labs.",
   "Answer clearly, directly, and safely.",
@@ -1480,19 +1482,27 @@ function buildStreamingModelMessages({
   webGroundingPrompt,
   memoryPrompt,
   includeMemory,
+  compactSimplePrompt,
 }) {
-  const compactSystemPrompt = [
-    NEXA_CORE_SYSTEM_PROMPT,
-    PROFESSIONAL_TONE_SYSTEM_PROMPT,
-    structuredResponseRequested
-      ? "Use concise Markdown headings and bullets."
-      : "",
-    explanationRequested
-      ? "Explain in simple terms with short sections."
-      : "",
-  ]
-    .filter(Boolean)
-    .join("\n");
+  const compactSystemPrompt = compactSimplePrompt
+    ? [
+        NEXA_CORE_SYSTEM_PROMPT,
+        "For greetings and simple small talk, answer naturally in 1 to 2 short sentences.",
+        "Do not reintroduce yourself unless the user asks who you are.",
+        "Do not use emoji.",
+      ].join("\n")
+    : [
+        NEXA_CORE_SYSTEM_PROMPT,
+        PROFESSIONAL_TONE_SYSTEM_PROMPT,
+        structuredResponseRequested
+          ? "Use concise Markdown headings and bullets."
+          : "",
+        explanationRequested
+          ? "Explain in simple terms with short sections."
+          : "",
+      ]
+        .filter(Boolean)
+        .join("\n");
 
   return [
     { role: "system", content: compactSystemPrompt },
@@ -1511,7 +1521,7 @@ function buildStreamingModelMessages({
       : []),
     ...recentConversationMessages
       .filter((message) => !looksLikeCasualToneCarryover(message))
-      .slice(-MAX_STREAM_CONTEXT_MESSAGES)
+      .slice(compactSimplePrompt ? -1 : -MAX_STREAM_CONTEXT_MESSAGES)
       .map((message) => ({
         role: message.role,
         content: compactStreamContent(message.content),
@@ -1536,11 +1546,17 @@ async function proxyLegacyChat(body) {
 }
 
 async function getBackendConfig() {
+  if (backendConfigCache && Date.now() < backendConfigCacheExpiresAt) {
+    return backendConfigCache;
+  }
+
   const response = await fetch(`${BACKEND_URL}/ui-config`, { cache: "no-store" });
   if (!response.ok) {
     throw new Error(`Failed to load backend config (${response.status}).`);
   }
-  return response.json();
+  backendConfigCache = await response.json();
+  backendConfigCacheExpiresAt = Date.now() + 30_000;
+  return backendConfigCache;
 }
 
 function sseEvent(event, payload) {
@@ -2026,20 +2042,20 @@ export async function POST(request) {
       },
       messages: [{ role: "user", content }],
     };
+    const shouldUsePersonalMemory = !isSmallTalkOrSupportPrompt(content);
+    const emptyMemory = {
+      displayName: "",
+      preferredTone: "",
+      interests: [],
+      customInstructions: "",
+      facts: [],
+      updatedAt: null,
+    };
 
     const [initialMemory, conversationData, backendConfig] = await Promise.all([
-      withTimeout(
-        getUserMemory(auth.user.$id),
-        APPWRITE_TIMEOUT_MS,
-        {
-          displayName: "",
-          preferredTone: "",
-          interests: [],
-          customInstructions: "",
-          facts: [],
-          updatedAt: null,
-        },
-      ),
+      shouldUsePersonalMemory
+        ? withTimeout(getUserMemory(auth.user.$id), APPWRITE_TIMEOUT_MS, emptyMemory)
+        : Promise.resolve(emptyMemory),
       isNewConversation
         ? Promise.resolve(fallbackConversationData)
         : withTimeout(
@@ -2054,7 +2070,6 @@ export async function POST(request) {
       conversationData.conversation.title === DEFAULT_CONVERSATION_TITLE;
 
     const memoryPrompt = buildMemorySystemPrompt(initialMemory);
-    const shouldUsePersonalMemory = !isSmallTalkOrSupportPrompt(content);
     const webSearchResult =
       !imageGenerationRequested && shouldLikelySearchWeb(content)
         ? await searchTavily(content)
@@ -2080,6 +2095,14 @@ export async function POST(request) {
     const generationMaxNewTokens = webSearchResult.used
       ? Math.min(maxNewTokens, WEB_GROUNDED_MAX_NEW_TOKENS)
       : maxNewTokens;
+    const compactSimplePrompt =
+      !webSearchResult.used &&
+      !explanationRequested &&
+      !structuredResponseRequested &&
+      isSmallTalkOrSupportPrompt(content);
+    const effectiveMaxNewTokens = compactSimplePrompt
+      ? Math.min(generationMaxNewTokens, 128)
+      : generationMaxNewTokens;
 
     const recentConversationMessages = conversationData.messages
       .slice(-MAX_CONTEXT_MESSAGES)
@@ -2127,6 +2150,7 @@ export async function POST(request) {
       webGroundingPrompt: webSearchResult.groundingPrompt,
       memoryPrompt,
       includeMemory: shouldUsePersonalMemory,
+      compactSimplePrompt,
     });
 
     if (isImageGenerationPrompt(content)) {
@@ -2335,6 +2359,7 @@ export async function POST(request) {
             );
 
             try {
+              const modelStartedAt = Date.now();
               const backendResponse = await fetchBackendWithTimeout(
                 `${BACKEND_URL}/chat/stream`,
                 {
@@ -2342,7 +2367,7 @@ export async function POST(request) {
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
                     messages: streamingModelMessages,
-                    max_new_tokens: generationMaxNewTokens,
+                    max_new_tokens: effectiveMaxNewTokens,
                     temperature: modelTemperature,
                     top_p: DEFAULT_TOP_P,
                   }),
@@ -2466,6 +2491,7 @@ export async function POST(request) {
                 reply += buffer;
                 controller.enqueue(sseEvent("token", { text: buffer }));
               }
+              const modelLatencyMs = Date.now() - modelStartedAt;
 
               reply = reply.trim();
 
@@ -2486,7 +2512,7 @@ export async function POST(request) {
               });
 
               const updatedMemory = await persistMemorySafely(auth.user.$id, content, initialMemory);
-              const streamedUsage = usageFromBackendUsage(null, modelMessages.map((message) => message.content).join("\n"), reply);
+              const streamedUsage = usageFromBackendUsage(null, streamingModelMessages.map((message) => message.content).join("\n"), reply);
               await recordModelUsage({
                 modelId: textModelId(),
                 userId: auth.user.$id,
@@ -2494,7 +2520,7 @@ export async function POST(request) {
                 requestCount: 1,
                 inputTokens: streamedUsage.inputTokens,
                 outputTokens: streamedUsage.outputTokens,
-                latencyMs: Date.now() - requestStartedAt,
+                latencyMs: modelLatencyMs,
                 errorCount: 0,
               });
 
@@ -2555,6 +2581,7 @@ export async function POST(request) {
       }
     }
 
+    const modelStartedAt = Date.now();
     const backendResponse = await fetchBackendWithTimeout(
       `${BACKEND_URL}/chat`,
       {
@@ -2562,7 +2589,7 @@ export async function POST(request) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           messages: modelMessages,
-          max_new_tokens: generationMaxNewTokens,
+          max_new_tokens: effectiveMaxNewTokens,
           temperature: modelTemperature,
           top_p: DEFAULT_TOP_P,
         }),
@@ -2571,6 +2598,7 @@ export async function POST(request) {
       BACKEND_CHAT_TIMEOUT_MS,
       "Chat backend",
     );
+    const modelLatencyMs = Date.now() - modelStartedAt;
 
     if (!backendResponse.ok) {
       const failureText = await backendResponse.text();
@@ -2614,7 +2642,7 @@ export async function POST(request) {
       requestCount: 1,
       inputTokens: backendUsage.inputTokens,
       outputTokens: backendUsage.outputTokens,
-      latencyMs: Date.now() - requestStartedAt,
+      latencyMs: modelLatencyMs,
       errorCount: 0,
     });
 
