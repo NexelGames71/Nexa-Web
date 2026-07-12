@@ -27,38 +27,80 @@ const NEXA_FACTS = [
 
 const VOICE_SAMPLES: VoiceSample[] = [
   {
-    id: "f5-reference-en",
-    name: "Nexa F5 Reference EN",
-    source: "/voices/nexa-f5-reference-en.wav",
-    description: "English F5-TTS reference voice copied from the Nexa speech model assets.",
+    id: "nexa-spoken",
+    name: "Nexa Spoken Demo",
+    source: "/voices/nexa-voice-nexa-spoken.mp3",
+    description: "Primary Nexa voice demo from the Nexa_Voice asset folder.",
+    format: "MP3"
+  },
+  {
+    id: "nexa-reference",
+    name: "Nexa Reference Voice",
+    source: "/voices/nexa-voice-nexa-reference.wav",
+    description: "Short F5 reference clip for the core Nexa voice.",
     format: "WAV"
   },
   {
-    id: "f5-main",
-    name: "Nexa F5 Main",
-    source: "/voices/nexa-f5-main.flac",
-    description: "Primary multi-speaker F5-TTS sample used for voice matching tests.",
-    format: "FLAC"
+    id: "brad-spoken",
+    name: "Brad Spoken Demo",
+    source: "/voices/nexa-voice-brad-spoken.mp3",
+    description: "Brad voice demo from the Nexa voice library.",
+    format: "MP3"
   },
   {
-    id: "f5-country",
-    name: "Nexa F5 Country",
-    source: "/voices/nexa-f5-country.flac",
-    description: "Secondary F5-TTS voice style sample from the local Nexa model set.",
-    format: "FLAC"
+    id: "clara-spoken",
+    name: "Clara Spoken Demo",
+    source: "/voices/nexa-voice-clara-spoken.mp3",
+    description: "Clara voice demo from the Nexa voice library.",
+    format: "MP3"
   },
   {
-    id: "f5-town",
-    name: "Nexa F5 Town",
-    source: "/voices/nexa-f5-town.flac",
-    description: "Alternate F5-TTS reference sample for testing voice variety.",
-    format: "FLAC"
+    id: "corey-spoken",
+    name: "Corey Spoken Demo",
+    source: "/voices/nexa-voice-corey-spoken.mp3",
+    description: "Corey voice demo from the Nexa voice library.",
+    format: "MP3"
   },
   {
-    id: "f5-reference-zh",
-    name: "Nexa F5 Reference ZH",
-    source: "/voices/nexa-f5-reference-zh.wav",
-    description: "Chinese F5-TTS reference voice retained for multilingual voice work.",
+    id: "reid-spoken",
+    name: "Reid Spoken Demo",
+    source: "/voices/nexa-voice-reid-spoken.mp3",
+    description: "Reid voice demo from the Nexa voice library.",
+    format: "MP3"
+  },
+  {
+    id: "tyler-spoken",
+    name: "Tyler Spoken Demo",
+    source: "/voices/nexa-voice-tyler-spoken.mp3",
+    description: "Tyler voice demo from the Nexa voice library.",
+    format: "MP3"
+  },
+  {
+    id: "brad-reference",
+    name: "Brad Reference Voice",
+    source: "/voices/nexa-voice-brad-reference.wav",
+    description: "Short reference clip for Brad.",
+    format: "WAV"
+  },
+  {
+    id: "clara-reference",
+    name: "Clara Reference Voice",
+    source: "/voices/nexa-voice-clara-reference.wav",
+    description: "Short reference clip for Clara.",
+    format: "WAV"
+  },
+  {
+    id: "corey-reference",
+    name: "Corey Reference Voice",
+    source: "/voices/nexa-voice-corey-reference.wav",
+    description: "Short reference clip for Corey.",
+    format: "WAV"
+  },
+  {
+    id: "tyler-reference",
+    name: "Tyler Reference Voice",
+    source: "/voices/nexa-voice-tyler-reference.wav",
+    description: "Short reference clip for Tyler.",
     format: "WAV"
   }
 ];
@@ -446,7 +488,7 @@ export default function TeaserPage() {
                   Nexa voice previews
                 </h3>
                 <p className="mt-1 text-xs text-zinc-400">
-                  These are real F5-TTS reference clips copied from the local Nexa speech model assets.
+                  These are the actual voice demos and reference clips from the Nexa_Voice asset folder.
                 </p>
 
                 <div className="mt-4 flex flex-col gap-4">
