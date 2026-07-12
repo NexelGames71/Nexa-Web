@@ -9,15 +9,10 @@ import {
   createSessionJwt,
   isAdminEmail,
 } from "../../lib/appwrite";
-import thinkingIcon from "../../assets/thinking.png";
-import settingsIcon from "../../assets/settings.png";
-import closeIcon from "../../assets/close.png";
-import databaseIcon from "../../assets/database.png";
 import ChatComposer from "./chat/ChatComposer";
 import ChatEmptyState from "./chat/ChatEmptyState";
 import ChatMessages from "./chat/ChatMessages";
 import ChatTopBar from "./chat/ChatTopBar";
-import nextIcon from "../../assets/next.png";
 import ChatConversationItem from "./chat/ChatConversationItem";
 import ChatArchivedDropdown from "./chat/ChatArchivedDropdown";
 import { IconNewChat, IconSearch, IconSidebar, NexaMark } from "./chat/ChatIcons";
@@ -27,6 +22,11 @@ import { BILLING_PLANS, getPlanLimitHighlights } from "../../lib/billing-plans";
 import { formatLimitValue } from "../../lib/plan-limits";
 import { RESPONSE_LENGTH_OPTIONS, THINKING_MODES } from "../../lib/thinking-modes";
 
+const thinkingIcon = { src: "/thinking.png" };
+const settingsIcon = { src: "/settings.png" };
+const closeIcon = { src: "/close.png" };
+const databaseIcon = { src: "/database.png" };
+const nextIcon = { src: "/next.png" };
 const QUICK_ACTIONS = ["Create an image", "Write or edit", "Look something up"];
 const WEB_SEARCH_HINT_KEYWORDS = [
   "current",
@@ -100,13 +100,17 @@ function repairMojibake(value) {
 
 function stripUnexpectedInlineCjk(value) {
   return String(value || "")
-    .replace(/(?<=[A-Za-z0-9.,!?;:'"()\]\s])[\u3400-\u9FFF]+(?=[A-Za-z0-9.,!?;:'"()[\]\s])/g, "")
-    .replace(/\s{2,}/g, " ");
+    .replace(/(?<=[A-Za-z0-9.,!?;:'"()\]\s])[\u3400-\u9FFF]+(?=[A-Za-z0-9.,!?;:'"()[\]\s])/g, "");
+}
+
+function normalizeAssistantWhitespace(value) {
+  return String(value || "")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/[ \t]+\n/g, "\n");
 }
 
 function sanitizeAssistantContent(value) {
-  return stripUnexpectedInlineCjk(repairMojibake(value))
-    .replace(/[ \t]+\n/g, "\n")
+  return normalizeAssistantWhitespace(stripUnexpectedInlineCjk(repairMojibake(value)))
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
@@ -1172,16 +1176,20 @@ export default function NexaWorkspace({
             } else if (item.event === "token") {
               const nextText = String(item.data.text || "");
               setSendingActivity(imageGenerationRequested ? "creating-image" : "typing");
-              setMessages((current) =>
-                current.map((message) =>
-                  message.id === streamingAssistantId
-                    ? {
-                        ...message,
-                        content: `${message.content}${sanitizeAssistantStreamChunk(nextText)}`,
-                      }
-                    : message,
-                ),
-              );
+              const cleanText = sanitizeAssistantStreamChunk(nextText);
+              if (cleanText) {
+                setMessages((current) =>
+                  current.map((message) =>
+                    message.id === streamingAssistantId
+                      ? {
+                          ...message,
+                          content: `${message.content}${cleanText}`,
+                        }
+                      : message,
+                  ),
+                );
+                await wait(/[.!?]\s*$/.test(cleanText) ? 34 : /[,;:]\s*$/.test(cleanText) ? 22 : 12);
+              }
             } else if (item.event === "progress") {
               if (imageGenerationRequested) {
                 setSendingActivity("creating-image");
@@ -1196,6 +1204,8 @@ export default function NexaWorkspace({
                   aspectRatio: item.data.aspect_ratio || item.data.aspectRatio || "1:1",
                   style: item.data.style || "image design",
                 });
+              } else if (item.data?.status === "queued") {
+                setSendingActivity("queued");
               }
             } else if (item.event === "done") {
               setSendingActivity("");
@@ -1245,9 +1255,10 @@ export default function NexaWorkspace({
                         ...message,
                         ...(savedAssistantMessage || {}),
                         id: streamingAssistantId,
-                        content:
-                          savedAssistantMessage?.content ??
-                          sanitizeAssistantContent(item.data.reply || message.content),
+                        content: message.content
+                          ? message.content
+                          : savedAssistantMessage?.content ??
+                            sanitizeAssistantContent(item.data.reply || message.content),
                         sourceConfidence,
                         usedWebSearch,
                         sources,

@@ -2,10 +2,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import thinkingIcon from "../../../assets/thinking.png";
 import { THINKING_MODES } from "../../../lib/thinking-modes";
 import { IconSend } from "./ChatIcons";
 
+const thinkingIcon = { src: "/thinking.png" };
 const PLUS_MENU_ITEMS = [
   { id: "files", label: "Add photos & files", icon: "📎", disabled: true },
   { id: "recent", label: "Recent files", icon: "🕐", disabled: true },

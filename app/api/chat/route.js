@@ -40,13 +40,25 @@ import {
 } from "../../../lib/server/r2";
 import { searchTavily } from "../../../lib/server/tavily";
 
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
-const DEFAULT_MAX_NEW_TOKENS = 768;
+const IMAGE_BACKEND_URL = process.env.NEXA_IMAGE_API_URL || BACKEND_URL;
+const DEFAULT_MAX_NEW_TOKENS = 512;
+const EXPLANATION_MAX_NEW_TOKENS = 384;
+const WEB_GROUNDED_MAX_NEW_TOKENS = 384;
 const DEFAULT_TEMPERATURE = 0.7;
 const DEFAULT_TOP_P = 0.9;
 const MAX_CONTEXT_MESSAGES = 8;
+const MAX_STREAM_CONTEXT_MESSAGES = 3;
+const STREAM_MESSAGE_CHAR_LIMIT = 1400;
 const TITLE_MAX_NEW_TOKENS = 12;
 const encoder = new TextEncoder();
+const NEXA_CORE_SYSTEM_PROMPT = [
+  "You are Nexa, an AI assistant developed by Nexa Labs.",
+  "Answer clearly, directly, and safely.",
+].join("\n");
 const CONTINUITY_SYSTEM_PROMPT = [
   "Conversation continuity rules:",
   "Treat short follow-up questions as referring to the recent conversation unless the user clearly changes topic.",
@@ -90,6 +102,15 @@ const OUTPUT_STYLE_SYSTEM_PROMPT = [
   "Avoid inline broken code or pseudo-code inside normal sentences. If code is needed, render a real fenced code block; otherwise explain without code.",
   "When the user asks a complex question, prefer 3 to 6 focused sections or bullets over a brief generic answer.",
   "For recommendation or setup questions, start with the direct answer first, then explain the reasoning and practical options.",
+].join("\n");
+const PROFESSIONAL_TONE_SYSTEM_PROMPT = [
+  "Professional tone rules:",
+  "Use a calm, capable, production-ready assistant voice.",
+  "Do not use hype, pep talks, exaggerated enthusiasm, startup-energy language, roleplay, or motivational filler.",
+  "Do not mention the Nexa ecosystem, building projects, big ideas, vibes, energy, or momentum unless the user asks about those topics.",
+  "Do not address the user by name unless it is directly useful.",
+  "Do not use emoji unless the user explicitly asks for emoji or the task benefits from it.",
+  "For greetings and small talk, answer naturally in 1 to 3 short sentences.",
 ].join("\n");
 
 const RESPONSE_MODE_TOKEN_BUDGETS = {
@@ -181,17 +202,18 @@ const EXPLANATION_SYSTEM_PROMPT = [
   "Explanation mode:",
   "The user wants to understand a concept, not just get a short definition.",
   "Answer as a teacher would for a smart beginner.",
-  "Use this teaching structure unless the user clearly wants something shorter:",
-  "1. Short heading",
-  "2. Definition",
-  "3. Simple analogy",
-  "4. Tiny code example only if it is genuinely useful",
-  "5. Key takeaway",
-  "Keep the answer in 3 to 5 short sections.",
+  "Use simple Markdown structure with short headings and bullets when helpful.",
+  "Put a blank line between sections.",
+  "Put every numbered or bulleted item on its own line.",
+  "Use 3 to 5 short sections when the topic benefits from structure.",
   "Each section should be short and readable.",
+  "Do not repeat the title, intro, examples, bullets, or sections.",
   "Do not collapse the explanation into one dense paragraph.",
+  "Do not use emoji.",
+  "Do not use tables.",
+  "Do not use decorative separators like ---.",
   "Do not use inline pseudo-code like code fragments mixed into prose.",
-  "If a code example helps, keep it tiny and render it as a real fenced code block.",
+  "If a code example helps, keep it tiny and render it as one real fenced code block.",
   "If code does not help, skip it.",
   "Prefer plain language, concrete examples, and progression from basic idea to practical understanding.",
 ].join("\n");
@@ -272,6 +294,8 @@ const WEB_SEARCH_HINT_KEYWORDS = [
   "updated",
   "updates",
 ];
+const WEB_SEARCH_HINT_PHRASES = WEB_SEARCH_HINT_KEYWORDS.filter((keyword) => keyword.includes(" "));
+const WEB_SEARCH_HINT_WORDS = WEB_SEARCH_HINT_KEYWORDS.filter((keyword) => !keyword.includes(" "));
 
 const APPWRITE_TIMEOUT_MS = 4000;
 const BACKEND_STREAM_OPEN_TIMEOUT_MS = Number(process.env.BACKEND_STREAM_OPEN_TIMEOUT_MS || 15000);
@@ -293,10 +317,42 @@ function supportsStreamingBackend(url) {
 
 function shouldLikelySearchWeb(content) {
   const normalized = String(content || "").toLowerCase();
+  if (isSmallTalkOrSupportPrompt(normalized)) {
+    return false;
+  }
+
   if (/\b(search|look up|find|verify|check)\b.{0,40}\b(web|internet|online|sources?|latest|current)\b/.test(normalized)) {
     return true;
   }
-  return WEB_SEARCH_HINT_KEYWORDS.some((keyword) => normalized.includes(keyword));
+  if (WEB_SEARCH_HINT_PHRASES.some((keyword) => normalized.includes(keyword))) {
+    return true;
+  }
+  return WEB_SEARCH_HINT_WORDS.some((keyword) =>
+    new RegExp(`\\b${keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(normalized),
+  );
+}
+
+function isSmallTalkOrSupportPrompt(content) {
+  const normalized = String(content || "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!normalized) {
+    return false;
+  }
+
+  if (/^(hi|hello|hey|yo|sup|good morning|good afternoon|good evening)\b/.test(normalized)) {
+    return true;
+  }
+
+  if (/\b(how are you|how are you doing|what'?s up|how'?s it going)\b/.test(normalized)) {
+    return true;
+  }
+
+  return /\b(i'?m|i am|im)\b.{0,40}\b(confused|lost|overwhelmed|stuck|unsure|don'?t know where to start|do not know where to start)\b/.test(
+    normalized,
+  );
 }
 
 function preferSourceConfidence(primary, fallback = "none") {
@@ -330,6 +386,24 @@ function buildWebGroundedUserPrompt(content, webSearchResult) {
   ]
     .filter(Boolean)
     .join("\n");
+}
+
+function looksLikePriorWebGroundedAnswer(message) {
+  const text = String(message?.content || "");
+  if (message?.usedWebSearch || message?.used_web_search) {
+    return true;
+  }
+  return /\b(Web search used|source_confidence|Sources\s+\d+|Web source:|Current sources)\b/i.test(text);
+}
+
+function looksLikeCasualToneCarryover(message) {
+  if (message?.role !== "assistant") {
+    return false;
+  }
+
+  return /\b(nexa ecosystem|startup|vibe|energy|crush|magic|big ideas|unstoppable|fired up|ready to roll|let's roll|bounced back|love how you|just dropped by|well-oiled ai engine)\b/i.test(
+    String(message.content || ""),
+  );
 }
 
 function isImageGenerationPrompt(content) {
@@ -515,7 +589,7 @@ function assertGeneratedImageStorageConfigured() {
 }
 
 async function generateBackendImage(args) {
-  const jobResponse = await fetch(`${BACKEND_URL}/v1/image/jobs`, {
+  const jobResponse = await fetch(`${IMAGE_BACKEND_URL}/v1/image/jobs`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -530,7 +604,7 @@ async function generateBackendImage(args) {
   });
 
   if (jobResponse.status === 404 || jobResponse.status === 405) {
-    const directResponse = await fetch(`${BACKEND_URL}/v1/image/generate`, {
+    const directResponse = await fetch(`${IMAGE_BACKEND_URL}/v1/image/generate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -545,6 +619,11 @@ async function generateBackendImage(args) {
     });
 
     if (!directResponse.ok) {
+      if (directResponse.status === 404) {
+        throw new Error(
+          `Image generation backend is not available at ${IMAGE_BACKEND_URL}. Start the Nexa image API or set NEXA_IMAGE_API_URL to the image-capable backend.`,
+        );
+      }
       throw new Error((await directResponse.text()) || `Image generation failed (${directResponse.status}).`);
     }
 
@@ -564,7 +643,7 @@ async function generateBackendImage(args) {
   const startedAt = Date.now();
   while (Date.now() - startedAt < 15 * 60 * 1000) {
     await new Promise((resolve) => setTimeout(resolve, 2000));
-    const statusResponse = await fetch(`${BACKEND_URL}/v1/image/jobs/${encodeURIComponent(jobId)}`, {
+    const statusResponse = await fetch(`${IMAGE_BACKEND_URL}/v1/image/jobs/${encodeURIComponent(jobId)}`, {
       cache: "no-store",
     });
 
@@ -1298,6 +1377,53 @@ function normalizeStructuredReplyFormatting(reply) {
   return text.trim();
 }
 
+function removeRepeatedReplyBlocks(reply) {
+  const lines = String(reply || "").replace(/\r\n/g, "\n").split("\n");
+  const output = [];
+  const seen = new Set();
+  const repeatedStarts = [
+    "why python is better",
+    "easy to learn",
+    "easy to learn and read",
+    "massive ecosystem",
+    "massive ai ecosystem",
+    "rich ecosystem",
+  ];
+  const seenStarts = new Set();
+
+  for (const line of lines) {
+    const normalized = line
+      .replace(/^[\s#>*\-•✅📦🚀]+\s*/u, "")
+      .replace(/^[\d①②③④⑤⑥⑦⑧⑨]+\s*[.)️⃣-]?\s*/u, "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
+
+    const matchingStart = repeatedStarts.find((start) => normalized.startsWith(start));
+    if (matchingStart) {
+      if (seenStarts.has(matchingStart)) {
+        continue;
+      }
+      seenStarts.add(matchingStart);
+    }
+
+    if (normalized.length > 60) {
+      if (seen.has(normalized)) {
+        continue;
+      }
+      seen.add(normalized);
+    }
+
+    output.push(line);
+  }
+
+  return output
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/^\s*###\s*$/gm, "")
+    .trim();
+}
+
 async function formatAssistantReply(reply, userContent) {
   if (isStructuredResponsePrompt(userContent)) {
     const parsed = tryParseStructuredJson(reply);
@@ -1316,34 +1442,75 @@ async function formatAssistantReply(reply, userContent) {
       }
     }
 
-    return normalizeStructuredReplyFormatting(reply);
+    return removeRepeatedReplyBlocks(normalizeStructuredReplyFormatting(reply));
   }
 
   if (isExplanationPrompt(userContent)) {
-    return normalizeStructuredReplyFormatting(reply);
+    return removeRepeatedReplyBlocks(normalizeStructuredReplyFormatting(reply));
   }
 
-  return String(reply || "").trim();
+  return removeRepeatedReplyBlocks(reply);
 }
 
 function shouldUseStreamingBackend(content) {
   if (!supportsStreamingBackend(BACKEND_URL)) {
     return false;
   }
-
-  // Web-grounded prompts are more reliable through the non-stream backend path
-  // on the local 4B model.
-  if (shouldLikelySearchWeb(content)) {
-    return false;
-  }
-
-  // Structured planning and architecture answers look substantially better when
-  // we wait for the full response instead of exposing partial stream fragments.
-  if (isStructuredResponsePrompt(content) || isExplanationPrompt(content)) {
-    return false;
-  }
-
   return true;
+}
+
+function compactStreamContent(content, limit = STREAM_MESSAGE_CHAR_LIMIT) {
+  const text = String(content || "").replace(/[ \t]+\n/g, "\n").trim();
+  if (text.length <= limit) {
+    return text;
+  }
+  return `${text.slice(0, limit).trim()}\n\n[Earlier content truncated for faster local streaming.]`;
+}
+
+function buildStreamingModelMessages({
+  recentConversationMessages,
+  explanationRequested,
+  structuredResponseRequested,
+  webGroundingPrompt,
+  memoryPrompt,
+  includeMemory,
+}) {
+  const compactSystemPrompt = [
+    NEXA_CORE_SYSTEM_PROMPT,
+    PROFESSIONAL_TONE_SYSTEM_PROMPT,
+    structuredResponseRequested
+      ? "Use concise Markdown headings and bullets."
+      : "",
+    explanationRequested
+      ? "Explain in simple terms with short sections."
+      : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  return [
+    { role: "system", content: compactSystemPrompt },
+    ...(webGroundingPrompt
+      ? [{ role: "system", content: compactStreamContent(webGroundingPrompt, 1200) }]
+      : []),
+    ...(includeMemory && memoryPrompt
+      ? [
+          {
+            role: "system",
+            content:
+              `${compactStreamContent(memoryPrompt, 500)}\n\n` +
+              "If memory tone conflicts with the professional tone rules, follow the professional tone rules.",
+          },
+        ]
+      : []),
+    ...recentConversationMessages
+      .filter((message) => !looksLikeCasualToneCarryover(message))
+      .slice(-MAX_STREAM_CONTEXT_MESSAGES)
+      .map((message) => ({
+        role: message.role,
+        content: compactStreamContent(message.content),
+      })),
+  ];
 }
 
 async function proxyLegacyChat(body) {
@@ -1489,8 +1656,17 @@ function normalizeBackendStreamEvent(data) {
     };
   }
 
-  if (data.type === "chunk") {
+  if (data.type === "chunk" || data.type === "token") {
     return { type: "token", text: String(data.text || "") };
+  }
+
+  if (data.type === "progress") {
+    return {
+      type: "progress",
+      status: data.status || "working",
+      message: data.message || "",
+      seconds: Number(data.seconds || 0),
+    };
   }
 
   if (data.type === "final") {
@@ -1584,6 +1760,19 @@ function sanitizeGeneratedTitle(rawTitle, fallbackMessage) {
     ["show", "me"],
   ];
   const lowerWords = words.map((word) => word.toLowerCase());
+  const lowerTitle = lowerWords.join(" ");
+  const genericTitles = new Set([
+    "latest ai trends",
+    "latest trends update",
+    "chat topic summary",
+    "new conversation",
+    "general chat",
+    "ai assistant chat",
+  ]);
+  if (genericTitles.has(lowerTitle)) {
+    return buildConversationTitle(fallbackMessage);
+  }
+
   const hasWeakPrefix = weakPrefixes.some(
     ([first, second]) => lowerWords[0] === first && lowerWords[1] === second,
   );
@@ -1599,7 +1788,11 @@ function sanitizeGeneratedTitle(rawTitle, fallbackMessage) {
 }
 
 async function generateConversationTitle(userMessage, assistantReply, systemPrompt) {
-  const fallback = buildConversationTitle(`${userMessage} ${assistantReply}`.trim());
+  const fallback = buildConversationTitle(userMessage);
+  if (fallback === DEFAULT_CONVERSATION_TITLE || isSmallTalkOrSupportPrompt(userMessage)) {
+    return fallback;
+  }
+
   const titlePrompt = `
 Generate a short chat title.
 
@@ -1610,6 +1803,8 @@ Rules:
 - Do not copy the user's sentence
 - Summarize the main topic
 - Remove filler words like "I want", "help me", "create", "build"
+- Use only the user's message, not the assistant response
+- Do not return generic titles like "Latest AI Trends", "Latest Trends Update", or "Chat Topic Summary"
 
 User Message:
 ${userMessage}
@@ -1638,7 +1833,7 @@ Return only the title.
     }
 
     const data = await response.json();
-    const generated = sanitizeGeneratedTitle(data.reply, `${userMessage} ${assistantReply}`.trim());
+    const generated = sanitizeGeneratedTitle(data.reply, userMessage);
     return generated || fallback;
   } catch {
     return fallback;
@@ -1720,15 +1915,19 @@ export async function POST(request) {
   }
 
   const requestedMaxNewTokens = Number(body.max_new_tokens || 0);
-  const maxNewTokens =
+  const baseMaxNewTokens =
     requestedMaxNewTokens > 0
       ? requestedMaxNewTokens
       : RESPONSE_MODE_TOKEN_BUDGETS[chooseResponseMode(content)] || DEFAULT_MAX_NEW_TOKENS;
+  const explanationRequested = isExplanationPrompt(content);
+  const maxNewTokens =
+    explanationRequested
+      ? Math.min(baseMaxNewTokens, EXPLANATION_MAX_NEW_TOKENS)
+      : baseMaxNewTokens;
   const responseMode = responseModeFromMaxNewTokens(maxNewTokens, content);
   const imageGenerationRequested = isImageGenerationPrompt(content);
   const wantsStream = Boolean(body.stream);
   const structuredResponseRequested = isStructuredResponsePrompt(content);
-  const explanationRequested = isExplanationPrompt(content);
   const modelTemperature = structuredResponseRequested ? 0.2 : DEFAULT_TEMPERATURE;
   const currentUserPromptForModel = structuredResponseRequested
     ? buildStructuredResponseUserPrompt(content)
@@ -1848,6 +2047,7 @@ export async function POST(request) {
       conversationData.conversation.title === DEFAULT_CONVERSATION_TITLE;
 
     const memoryPrompt = buildMemorySystemPrompt(initialMemory);
+    const shouldUsePersonalMemory = !isSmallTalkOrSupportPrompt(content);
     const webSearchResult =
       !imageGenerationRequested && shouldLikelySearchWeb(content)
         ? await searchTavily(content)
@@ -1870,9 +2070,14 @@ export async function POST(request) {
     const promptForModel = webSearchResult.used
       ? buildWebGroundedUserPrompt(currentUserPromptForModel, webSearchResult)
       : currentUserPromptForModel;
+    const generationMaxNewTokens = webSearchResult.used
+      ? Math.min(maxNewTokens, WEB_GROUNDED_MAX_NEW_TOKENS)
+      : maxNewTokens;
 
     const recentConversationMessages = conversationData.messages
       .slice(-MAX_CONTEXT_MESSAGES)
+      .filter((message) => webSearchResult.used || !looksLikePriorWebGroundedAnswer(message))
+      .filter((message) => !looksLikeCasualToneCarryover(message))
       .map((message) => ({
         role: message.role,
         content: message.content,
@@ -1890,10 +2095,11 @@ export async function POST(request) {
     }
 
     const modelMessages = [
-      { role: "system", content: backendConfig.system_prompt || "You are a helpful assistant." },
+      { role: "system", content: backendConfig.system_prompt || NEXA_CORE_SYSTEM_PROMPT },
       { role: "system", content: CONTINUITY_SYSTEM_PROMPT },
       { role: "system", content: GROUNDING_SYSTEM_PROMPT },
       { role: "system", content: OUTPUT_STYLE_SYSTEM_PROMPT },
+      { role: "system", content: PROFESSIONAL_TONE_SYSTEM_PROMPT },
       ...(webSearchResult.groundingPrompt
         ? [{ role: "system", content: webSearchResult.groundingPrompt }]
         : []),
@@ -1904,9 +2110,17 @@ export async function POST(request) {
             { role: "system", content: STRUCTURED_JSON_SYSTEM_PROMPT },
           ]
         : []),
-      ...(memoryPrompt ? [{ role: "system", content: memoryPrompt }] : []),
+      ...(shouldUsePersonalMemory && memoryPrompt ? [{ role: "system", content: memoryPrompt }] : []),
       ...recentConversationMessages,
     ];
+    const streamingModelMessages = buildStreamingModelMessages({
+      recentConversationMessages,
+      explanationRequested,
+      structuredResponseRequested,
+      webGroundingPrompt: webSearchResult.groundingPrompt,
+      memoryPrompt,
+      includeMemory: shouldUsePersonalMemory,
+    });
 
     if (isImageGenerationPrompt(content)) {
       const runImageGeneration = async () => {
@@ -2074,7 +2288,8 @@ export async function POST(request) {
         };
 
         const stream = new ReadableStream({
-          async start(controller) {
+          start(controller) {
+            void (async () => {
             let reply = "";
             let backendMetadata = { used_web_search: false, source_confidence: "none", sources: [] };
             let reader = null;
@@ -2099,8 +2314,8 @@ export async function POST(request) {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
-                    messages: modelMessages,
-                    max_new_tokens: maxNewTokens,
+                    messages: streamingModelMessages,
+                    max_new_tokens: generationMaxNewTokens,
                     temperature: modelTemperature,
                     top_p: DEFAULT_TOP_P,
                   }),
@@ -2147,6 +2362,14 @@ export async function POST(request) {
                     } else if (normalized.type === "token" && normalized.text) {
                       reply += normalized.text;
                       controller.enqueue(sseEvent("token", { text: normalized.text }));
+                    } else if (normalized.type === "progress") {
+                      controller.enqueue(
+                        sseEvent("progress", {
+                          status: normalized.status,
+                          message: normalized.message,
+                          seconds: normalized.seconds,
+                        }),
+                      );
                     } else if (normalized.type === "final") {
                       if (normalized.error) {
                         throw new Error(normalized.error);
@@ -2192,6 +2415,14 @@ export async function POST(request) {
                   if (normalized.type === "token" && normalized.text) {
                     reply += normalized.text;
                     controller.enqueue(sseEvent("token", { text: normalized.text }));
+                  } else if (normalized.type === "progress") {
+                    controller.enqueue(
+                      sseEvent("progress", {
+                        status: normalized.status,
+                        message: normalized.message,
+                        seconds: normalized.seconds,
+                      }),
+                    );
                   } else if (normalized.type === "final") {
                     if (normalized.error) {
                       throw new Error(normalized.error);
@@ -2257,87 +2488,16 @@ export async function POST(request) {
                 return;
               }
 
-              try {
-                const fallbackResponse = await fetchBackendWithTimeout(
-                  `${BACKEND_URL}/chat`,
-                  {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      messages: modelMessages,
-                      max_new_tokens: maxNewTokens,
-                      temperature: modelTemperature,
-                      top_p: DEFAULT_TOP_P,
-                    }),
-                    cache: "no-store",
-                  },
-                  BACKEND_CHAT_TIMEOUT_MS,
-                  "Chat backend fallback",
-                );
-
-                if (!fallbackResponse.ok) {
-                  throw new Error(await fallbackResponse.text());
-                }
-
-                const fallbackData = await fallbackResponse.json();
-                const fallbackReply = await formatAssistantReply(fallbackData.reply, content);
-                const savedAssistantMessage = await saveMessage({
-                  userId: auth.user.$id,
+              controller.enqueue(
+                sseEvent("error", {
+                  error: error?.message || "Streaming failed.",
                   conversationId,
-                  role: "assistant",
-                  content: fallbackReply,
-                });
-
-                const resolvedTitle = needsGeneratedTitle
-                  ? await generateConversationTitle(content, fallbackReply, backendConfig.system_prompt)
-                  : conversationData.conversation.title;
-
-                const updatedConversation = await updateConversationSummary(conversationId, auth.user.$id, {
-                  title: resolvedTitle,
-                  lastMessagePreview: fallbackReply.slice(0, 120),
-                });
-
-                const updatedMemory = await persistMemorySafely(auth.user.$id, content, initialMemory);
-
-                controller.enqueue(
-                  sseEvent("done", {
-                    reply: fallbackReply,
-                    conversationId,
-                    conversation: updatedConversation,
-                    memory: updatedMemory,
-                    userMessage: savedUserMessage,
-                    assistantMessage: savedAssistantMessage,
-                    source_confidence: preferSourceConfidence(
-                      webSearchResult.sourceConfidence,
-                      fallbackData.source_confidence || backendMetadata.source_confidence,
-                    ),
-                    used_web_search:
-                      webSearchResult.used ||
-                      fallbackData.used_web_search ||
-                      backendMetadata.used_web_search ||
-                      false,
-                    sources: webSearchResult.sources?.length
-                      ? webSearchResult.sources
-                      : Array.isArray(fallbackData.sources)
-                        ? fallbackData.sources
-                        : backendMetadata.sources,
-                    usageWarnings,
-                  }),
-                );
-              } catch (fallbackError) {
-                controller.enqueue(
-                  sseEvent("error", {
-                    error:
-                      fallbackError?.message ||
-                      error?.message ||
-                      "Streaming failed.",
-                    conversationId,
-                  }),
-                );
-              }
+                }),
+              );
             } finally {
               controller.close();
             }
+            })();
           },
         });
 
@@ -2346,10 +2506,14 @@ export async function POST(request) {
             "Content-Type": "text/event-stream; charset=utf-8",
             "Cache-Control": "no-cache, no-transform",
             Connection: "keep-alive",
+            "X-Accel-Buffering": "no",
           },
         });
-      } catch {
-        // Fall back to the regular chat endpoint if remote SSE is flaky.
+      } catch (error) {
+        return Response.json(
+          { error: error?.message || "Streaming setup failed.", conversationId },
+          { status: 502 },
+        );
       }
     }
 
@@ -2360,7 +2524,7 @@ export async function POST(request) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           messages: modelMessages,
-          max_new_tokens: maxNewTokens,
+          max_new_tokens: generationMaxNewTokens,
           temperature: modelTemperature,
           top_p: DEFAULT_TOP_P,
         }),

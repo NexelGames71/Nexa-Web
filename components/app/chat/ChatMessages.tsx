@@ -3,9 +3,10 @@
 
 import { Fragment, useMemo, useState } from "react";
 import { NexaMark } from "./ChatIcons";
-import createIcon from "../../../assets/ionicons/src/svg/create-outline.svg";
-import downloadIcon from "../../../assets/ionicons/src/svg/download-outline.svg";
-import resizeIcon from "../../../assets/ionicons/src/svg/resize-outline.svg";
+
+const createIcon = { src: "/icons/create-outline.svg" };
+const downloadIcon = { src: "/icons/download-outline.svg" };
+const resizeIcon = { src: "/icons/resize-outline.svg" };
 
 const STRUCTURED_SECTION_LABELS = [
   "Missing Information",
@@ -201,8 +202,6 @@ function normalizeStructuredSections(text) {
     .replace(/[ \t]+\n/g, "\n")
     .replace(/\s+(#{1,6}\s+)/g, "\n\n$1")
     .replace(/(^|\n)(#{1,6}\s+[^:\n]{2,120}):\s+([^\n])/g, "$1$2:\n$3")
-    .replace(/([^\n])\s+(?=\d+\.\s+[A-Z][A-Za-z0-9/&()' -]{2,80}(?:\s*[-:]|\s*$))/g, "$1\n\n")
-    .replace(/\s+[-–—]\s+(?=[A-Z][A-Za-z0-9/&()' -]{2,60}\s*(?:=|:|-|–|—))/g, "\n- ")
     .replace(/\s+(?=(?:✅|⚠️|❌|•)\s*)/g, "\n")
     .replace(/(^|\n)\s*---+\s*(?=\n|$)/g, "$1");
 
@@ -216,15 +215,6 @@ function normalizeStructuredSections(text) {
 
   normalized = normalized
     .replace(/([^\n])\n(#{1,6})\s/g, "$1\n\n$2 ")
-    .replace(/^\s*([A-Za-z][A-Za-z/&()\- ]{2,60})\s*\|\s*(.+?)\s*\|?\s*$/gm, (_, title, body) => {
-      const cleanedTitle = String(title).trim();
-      const cleanedBody = String(body)
-        .split("|")
-        .map((part) => part.trim())
-        .filter(Boolean)
-        .join("\n- ");
-      return `### ${cleanedTitle}\n- ${cleanedBody}`;
-    })
     .replace(/^([*_]{1,2})([^*_].{1,80}?)\1$/gm, "### $2")
     .replace(/^\s*-\s*$/gm, "");
 
@@ -597,7 +587,8 @@ function renderAssistantContent(content, options = {}) {
       }
 
       const numberedSectionMatch = firstLine.match(/^(\d+)\.\s+(.+)$/);
-      if (numberedSectionMatch) {
+      const allLinesAreNumbered = lines.every((line) => /^\d+\.\s+/.test(line.trim()));
+      if (numberedSectionMatch && !allLinesAreNumbered) {
         const sectionNumber = numberedSectionMatch[1];
         const heading = numberedSectionMatch[2].replace(/\s*[-–—]\s*$/, "").trim();
         const rest = lines.slice(1).join("\n").trim();
@@ -763,6 +754,8 @@ export default function ChatMessages({
       ? "Searching the web"
       : sendingActivity === "creating-image"
         ? "Creating image"
+      : sendingActivity === "queued"
+        ? "Queued"
       : sendingActivity === "thinking"
         ? "Thinking"
       : sendingActivity === "typing"
@@ -774,6 +767,8 @@ export default function ChatMessages({
       ? "Nexa is gathering fresh sources"
       : sendingActivity === "creating-image"
         ? "Nexa is generating the image"
+      : sendingActivity === "queued"
+        ? "Waiting for the local model to finish the current response"
       : sendingActivity === "thinking"
         ? "Nexa is planning the response"
       : sendingActivity === "typing"
@@ -781,6 +776,12 @@ export default function ChatMessages({
         : "";
 
   const activeSourceCount = useMemo(() => activeSources.length, [activeSources]);
+  const activeAssistantStream = messages.find(
+    (message, index) =>
+      isSending &&
+      message.role === "assistant" &&
+      index === messages.length - 1,
+  );
 
   return (
     <div className="relative mx-auto flex w-full max-w-6xl gap-8">
@@ -820,9 +821,19 @@ export default function ChatMessages({
                       </div>
                     ) : (
                       <div className="space-y-4">
-                        {isStreamingAssistant
-                          ? renderStreamingContent(message.content)
-                          : renderAssistantContent(message.content)}
+                        {isStreamingAssistant && !String(message.content || "").trim() ? (
+                          <div>
+                            <p className="mb-1 text-xs font-medium text-chat-muted">{activityLabel}</p>
+                            {activityHint ? (
+                              <p className="text-[11px] text-chat-muted/80">{activityHint}</p>
+                            ) : null}
+                            <ThinkingDots tone={sendingActivity || "thinking"} />
+                          </div>
+                        ) : isStreamingAssistant ? (
+                          renderStreamingContent(message.content)
+                        ) : (
+                          renderAssistantContent(message.content)
+                        )}
                         {(message.usedWebSearch || hasSources) && (
                           <div className="mt-3 flex flex-wrap items-center gap-2">
                             <span className="text-xs font-medium text-chat-muted">Web search used</span>
@@ -860,7 +871,7 @@ export default function ChatMessages({
             })()
           ))}
 
-          {isSending ? (
+          {isSending && !activeAssistantStream ? (
             <article className="flex gap-4">
               <NexaMark className="h-7 w-7 shrink-0 text-xs" />
               {sendingActivity === "creating-image" ? (

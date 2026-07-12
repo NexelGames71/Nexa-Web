@@ -1,8 +1,8 @@
-import arrowIcon from "../../../assets/arrow.png";
-import magnifyingGlassIcon from "../../../assets/magnifying-glass.png";
-import newMessageIcon from "../../../assets/new-message.png";
-import sidebarIcon from "../../../assets/sidebar.png";
-import thinkingIcon from "../../../assets/thinking.png";
+const arrowIcon = { src: "/arrow.png" };
+const magnifyingGlassIcon = { src: "/magnifying-glass.png" };
+const newMessageIcon = { src: "/new-message.png" };
+const sidebarIcon = { src: "/sidebar.png" };
+const thinkingIcon = { src: "/thinking.png" };
 
 type IconProps = {
   className?: string;
