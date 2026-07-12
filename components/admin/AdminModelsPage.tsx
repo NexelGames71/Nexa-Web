@@ -40,6 +40,9 @@ type ModelRecord = {
   costEstimate: string;
   planAccess: string[];
   features: string[];
+  endpoint?: string;
+  runtime?: string;
+  usageSource?: string;
   updatedAt: string;
 };
 
@@ -160,7 +163,7 @@ export default function AdminModelsPage() {
       <AdminPageHeader
         eyebrow="Model Operations"
         title="Models"
-        subtitle="Route, monitor, and control text, image, voice, embedding, moderation, and browser automation models from the production registry."
+        subtitle="Route, monitor, and control every active Nexa text, image, voice, speech, wake, and browser automation model."
         right={
           <>
             <LiveRefreshBadge label={loading ? "Refreshing registry" : "Registry synced"} />
@@ -174,14 +177,14 @@ export default function AdminModelsPage() {
       {error ? <ErrorState message={error} onRetry={() => void loadModels()} /> : null}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Total models" value={totals.total} note="Registered inference backends" tone="dark" />
+        <StatCard label="Total models" value={totals.total} note="Active Nexa model stack" tone="dark" />
         <StatCard label="Active models" value={totals.active} note="Serving production traffic" tone="healthy" />
         <StatCard label="Requests today" value={totals.requests} note="From model usage records" tone="info" />
         <StatCard label="Error rate" value={totals.errors} note={`Avg latency ${totals.latency}ms`} tone={totals.errors > 2 ? "warning" : "healthy"} />
       </div>
 
       <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(360px,0.8fr)]">
-        <AdminPanel title="Model registry" subtitle="Production backends with provider, routing, plan access, and health metadata.">
+        <AdminPanel title="Active model registry" subtitle="Production backends with provider, routing, plan access, limits, health, and usage metadata.">
           {loading ? (
             <LoadingSkeleton rows={8} />
           ) : (
@@ -212,7 +215,7 @@ export default function AdminModelsPage() {
                   empty={
                     <EmptyState
                       title="No model records"
-                      description="Add production models to the Appwrite model registry so Nexa can track routing, usage, latency, and plan access."
+                      description="Active Nexa defaults should appear here. Check the admin model API if this remains empty."
                     />
                   }
                   columns={[
@@ -229,7 +232,9 @@ export default function AdminModelsPage() {
                     { key: "type", label: "Type", render: (model) => model.type },
                     { key: "provider", label: "Provider", render: (model) => model.provider },
                     { key: "status", label: "Status", render: (model) => <AdminStatusBadge label={model.status} tone={statusTone(model.status)} pulse={model.status === "active" || model.status === "training"} /> },
+                    { key: "context", label: "Context", render: (model) => model.contextWindow },
                     { key: "requests", label: "Requests", render: (model) => formatNumber(model.requestsToday) },
+                    { key: "tokens", label: "Tokens", render: (model) => formatNumber(Number(model.inputTokens || 0) + Number(model.outputTokens || 0)) },
                     { key: "latency", label: "Latency", render: (model) => `${model.avgLatencyMs || 0}ms` },
                     { key: "errors", label: "Errors", render: (model) => `${model.errorRate || 0}%` },
                   ]}
@@ -276,6 +281,15 @@ export default function AdminModelsPage() {
                 <p><span className="font-semibold text-ink">Plans:</span> {selectedModel.planAccess.length ? selectedModel.planAccess.join(", ") : "No plan access configured"}</p>
                 <p><span className="font-semibold text-ink">Features:</span> {selectedModel.features.length ? selectedModel.features.join(", ") : "No feature flags configured"}</p>
                 <p><span className="font-semibold text-ink">Cost today:</span> {selectedModel.costEstimate}</p>
+              </div>
+            </AdminPanel>
+            <AdminPanel title="Routing and usage">
+              <div className="space-y-3 text-sm">
+                <p><span className="font-semibold text-ink">Endpoint:</span> {selectedModel.endpoint || "Not configured"}</p>
+                <p><span className="font-semibold text-ink">Runtime:</span> {selectedModel.runtime || "Not configured"}</p>
+                <p><span className="font-semibold text-ink">Input tokens:</span> {formatNumber(selectedModel.inputTokens)}</p>
+                <p><span className="font-semibold text-ink">Output tokens:</span> {formatNumber(selectedModel.outputTokens)}</p>
+                <p><span className="font-semibold text-ink">Usage source:</span> {selectedModel.usageSource || "Model usage records"}</p>
               </div>
             </AdminPanel>
           </div>
