@@ -27,80 +27,59 @@ const NEXA_FACTS = [
 
 const VOICE_SAMPLES: VoiceSample[] = [
   {
-    id: "nexa-spoken",
-    name: "Nexa Spoken Demo",
-    source: "/voices/nexa-voice-nexa-spoken.mp3",
-    description: "Primary Nexa voice demo from the Nexa_Voice asset folder.",
-    format: "MP3"
-  },
-  {
-    id: "nexa-reference",
-    name: "Nexa Reference Voice",
-    source: "/voices/nexa-voice-nexa-reference.wav",
-    description: "Short F5 reference clip for the core Nexa voice.",
+    id: "nexa",
+    name: "Nexa Voice",
+    source: "/voices/nexa-voice-nexa.wav",
+    description: "Core Nexa voice reference from the Nexa_Voice library.",
     format: "WAV"
   },
   {
-    id: "brad-spoken",
-    name: "Brad Spoken Demo",
-    source: "/voices/nexa-voice-brad-spoken.mp3",
-    description: "Brad voice demo from the Nexa voice library.",
-    format: "MP3"
-  },
-  {
-    id: "clara-spoken",
-    name: "Clara Spoken Demo",
-    source: "/voices/nexa-voice-clara-spoken.mp3",
-    description: "Clara voice demo from the Nexa voice library.",
-    format: "MP3"
-  },
-  {
-    id: "corey-spoken",
-    name: "Corey Spoken Demo",
-    source: "/voices/nexa-voice-corey-spoken.mp3",
-    description: "Corey voice demo from the Nexa voice library.",
-    format: "MP3"
-  },
-  {
-    id: "reid-spoken",
-    name: "Reid Spoken Demo",
-    source: "/voices/nexa-voice-reid-spoken.mp3",
-    description: "Reid voice demo from the Nexa voice library.",
-    format: "MP3"
-  },
-  {
-    id: "tyler-spoken",
-    name: "Tyler Spoken Demo",
-    source: "/voices/nexa-voice-tyler-spoken.mp3",
-    description: "Tyler voice demo from the Nexa voice library.",
-    format: "MP3"
-  },
-  {
-    id: "brad-reference",
-    name: "Brad Reference Voice",
-    source: "/voices/nexa-voice-brad-reference.wav",
-    description: "Short reference clip for Brad.",
+    id: "brad",
+    name: "Brad Voice",
+    source: "/voices/nexa-voice-brad.wav",
+    description: "Brad WAV reference from the Nexa_Voice library.",
     format: "WAV"
   },
   {
-    id: "clara-reference",
-    name: "Clara Reference Voice",
-    source: "/voices/nexa-voice-clara-reference.wav",
-    description: "Short reference clip for Clara.",
+    id: "clara",
+    name: "Clara Voice",
+    source: "/voices/nexa-voice-clara.wav",
+    description: "Clara WAV reference from the Nexa_Voice library.",
     format: "WAV"
   },
   {
-    id: "corey-reference",
-    name: "Corey Reference Voice",
-    source: "/voices/nexa-voice-corey-reference.wav",
-    description: "Short reference clip for Corey.",
+    id: "corey",
+    name: "Corey Voice",
+    source: "/voices/nexa-voice-corey.wav",
+    description: "Corey WAV reference from the Nexa_Voice library.",
     format: "WAV"
   },
   {
-    id: "tyler-reference",
-    name: "Tyler Reference Voice",
-    source: "/voices/nexa-voice-tyler-reference.wav",
-    description: "Short reference clip for Tyler.",
+    id: "tyler",
+    name: "Tyler Voice",
+    source: "/voices/nexa-voice-tyler.wav",
+    description: "Tyler WAV reference from the Nexa_Voice library.",
+    format: "WAV"
+  },
+  {
+    id: "candidate-1",
+    name: "Nexa Candidate 1",
+    source: "/voices/nexa-voice-candidate-1.wav",
+    description: "Candidate WAV voice captured in the Nexa_Voice root folder.",
+    format: "WAV"
+  },
+  {
+    id: "candidate-2",
+    name: "Nexa Candidate 2",
+    source: "/voices/nexa-voice-candidate-2.wav",
+    description: "Candidate WAV voice captured in the Nexa_Voice root folder.",
+    format: "WAV"
+  },
+  {
+    id: "candidate-3",
+    name: "Nexa Candidate 3",
+    source: "/voices/nexa-voice-candidate-3.wav",
+    description: "Candidate WAV voice captured in the Nexa_Voice root folder.",
     format: "WAV"
   }
 ];
@@ -190,113 +169,32 @@ export default function TeaserPage() {
   const [viewMode, setViewMode] = useState<"cinematic" | "storyboard">("cinematic");
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
-  const [isNarratorEnabled, setIsNarratorEnabled] = useState(false);
-  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
-  const [selectedVoiceName, setSelectedVoiceName] = useState("");
   const [speakingParagraphIndex, setSpeakingParagraphIndex] = useState(0);
   const [selectedVoiceSampleId, setSelectedVoiceSampleId] = useState(VOICE_SAMPLES[0].id);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const speechUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
-  const progressTimerRef = useRef<number | null>(null);
   const [sceneProgress, setSceneProgress] = useState(0);
 
   const activeScene = SCENES[activeSceneIndex];
   const selectedVoiceSample = VOICE_SAMPLES.find((sample) => sample.id === selectedVoiceSampleId) || VOICE_SAMPLES[0];
 
-  // Speech Synthesis setup
+  // Nexa WAV narrator manager.
   useEffect(() => {
-    if (typeof window !== "undefined" && window.speechSynthesis) {
-      const loadVoices = () => {
-        const availableVoices = window.speechSynthesis.getVoices();
-        const engVoices = availableVoices.filter(v => v.lang.startsWith("en"));
-        setVoices(engVoices.length > 0 ? engVoices : availableVoices);
-        if (engVoices.length > 0 && !selectedVoiceName) {
-          // Prefer natural sounding voices if available
-          const naturalVoice = engVoices.find(v => v.name.toLowerCase().includes("google") || v.name.toLowerCase().includes("natural"));
-          setSelectedVoiceName((naturalVoice || engVoices[0]).name);
-        }
-      };
+    const audio = audioRef.current;
+    if (!audio) return;
 
-      loadVoices();
-      window.speechSynthesis.onvoiceschanged = loadVoices;
-    }
-  }, [selectedVoiceName]);
+    audio.playbackRate = playbackSpeed;
 
-  // Audio Narration Manager
-  useEffect(() => {
-    if (typeof window === "undefined" || !window.speechSynthesis) return;
-
-    window.speechSynthesis.cancel();
-
-    if (!isNarratorEnabled || viewMode !== "cinematic" || !isPlaying) {
+    if (viewMode !== "cinematic" || !isPlaying) {
+      audio.pause();
       return;
     }
 
-    const speakParagraph = (index: number) => {
-      if (index >= activeScene.voiceover.length) {
-        handleNextScene();
-        return;
-      }
-
-      setSpeakingParagraphIndex(index);
-      const text = activeScene.voiceover[index];
-      const utterance = new SpeechSynthesisUtterance(text);
-      
-      if (selectedVoiceName) {
-        const voice = voices.find(v => v.name === selectedVoiceName);
-        if (voice) utterance.voice = voice;
-      }
-
-      utterance.rate = playbackSpeed;
-      utterance.onend = () => {
-        speakParagraph(index + 1);
-      };
-
-      utterance.onerror = () => {
-        setIsPlaying(false);
-      };
-
-      speechUtteranceRef.current = utterance;
-      window.speechSynthesis.speak(utterance);
-    };
-
-    speakParagraph(0);
-
-    return () => {
-      window.speechSynthesis.cancel();
-    };
-  }, [activeSceneIndex, isPlaying, isNarratorEnabled, selectedVoiceName, playbackSpeed, viewMode]);
-
-  // Timer-based progress for Cinematic Mode (fallback when narration is disabled)
-  useEffect(() => {
-    if (viewMode !== "cinematic" || !isPlaying || isNarratorEnabled) {
-      setSceneProgress(0);
-      return;
-    }
-
-    const duration = 6500 / playbackSpeed; // 6.5s per scene
-    const intervalTime = 100;
-    const increment = (intervalTime / duration) * 100;
-
+    audio.currentTime = 0;
     setSceneProgress(0);
-    
-    progressTimerRef.current = window.setInterval(() => {
-      setSceneProgress((prev) => {
-        if (prev >= 100) {
-          handleNextScene();
-          return 0;
-        }
-        return prev + increment;
-      });
-    }, intervalTime);
-
-    return () => {
-      if (progressTimerRef.current) {
-        clearInterval(progressTimerRef.current);
-      }
-    };
-  }, [activeSceneIndex, isPlaying, isNarratorEnabled, playbackSpeed, viewMode]);
+    setSpeakingParagraphIndex(0);
+    void audio.play().catch(() => setIsPlaying(false));
+  }, [activeSceneIndex, isPlaying, playbackSpeed, selectedVoiceSampleId, viewMode]);
 
   const handleNextScene = () => {
     setActiveSceneIndex((prev) => {
@@ -324,11 +222,22 @@ export default function TeaserPage() {
     setIsPlaying((prev) => !prev);
   };
 
-  const handlePlayVoiceSample = () => {
+  const handleAudioTimeUpdate = () => {
     const audio = audioRef.current;
     if (!audio) return;
-    audio.currentTime = 0;
-    void audio.play();
+    const duration = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : 0;
+    if (!duration) return;
+
+    const progress = Math.min(100, (audio.currentTime / duration) * 100);
+    const lineCount = activeScene.voiceover.length;
+    const nextIndex = Math.min(lineCount - 1, Math.floor((progress / 100) * lineCount));
+    setSceneProgress(progress);
+    setSpeakingParagraphIndex(nextIndex);
+  };
+
+  const handleAudioEnded = () => {
+    setSceneProgress(100);
+    handleNextScene();
   };
 
   return (
@@ -364,7 +273,7 @@ export default function TeaserPage() {
               onClick={() => {
                 setViewMode("storyboard");
                 setIsPlaying(false);
-                if (typeof window !== "undefined") window.speechSynthesis?.cancel();
+                audioRef.current?.pause();
               }}
               className={`rounded-lg px-4 py-2 text-xs font-medium transition ${
                 viewMode === "storyboard" ? "bg-white text-zinc-950 shadow-md" : "text-zinc-400 hover:text-white"
@@ -422,7 +331,7 @@ export default function TeaserPage() {
                 </div>
 
                 {/* Progress bar overlay */}
-                {isPlaying && !isNarratorEnabled && (
+                {isPlaying && (
                   <div className="absolute bottom-0 left-0 h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 transition-all duration-100" style={{ width: `${sceneProgress}%` }} />
                 )}
               </div>
@@ -485,10 +394,10 @@ export default function TeaserPage() {
               {/* Narration Controls Card */}
               <div className="rounded-3xl border border-white/10 bg-zinc-900/20 p-6 backdrop-blur-md">
                 <h3 className="text-sm font-bold text-white uppercase tracking-wider">
-                  Nexa voice previews
+                  Nexa WAV narrator
                 </h3>
                 <p className="mt-1 text-xs text-zinc-400">
-                  These are the actual voice demos and reference clips from the Nexa_Voice asset folder.
+                  Select a real WAV voice from Nexa_Voice. The chosen voice drives the teaser script playback.
                 </p>
 
                 <div className="mt-4 flex flex-col gap-4">
@@ -511,73 +420,22 @@ export default function TeaserPage() {
                       <p className="text-xs leading-relaxed text-zinc-400">
                         {selectedVoiceSample.description}
                       </p>
-                      <audio ref={audioRef} src={selectedVoiceSample.source} controls className="w-full" />
-                      <button
-                        type="button"
-                        onClick={handlePlayVoiceSample}
-                        className="rounded-xl bg-white px-3 py-2 text-xs font-semibold text-zinc-950 transition hover:bg-zinc-200"
-                      >
-                        Play selected Nexa voice
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Narrator Voice Toggle */}
-                  <div className="flex items-center justify-between border-b border-white/5 pb-4">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-zinc-300">Read script with browser narrator</span>
-                    </div>
-                    <label className="relative inline-flex cursor-pointer items-center">
-                      <input
-                        type="checkbox"
-                        checked={isNarratorEnabled}
-                        onChange={(e) => {
-                          setIsNarratorEnabled(e.target.checked);
-                          if (e.target.checked) setIsPlaying(true);
-                        }}
-                        className="peer sr-only"
+                      <audio
+                        ref={audioRef}
+                        src={selectedVoiceSample.source}
+                        controls
+                        className="w-full"
+                        onPlay={() => setIsPlaying(true)}
+                        onPause={() => setIsPlaying(false)}
+                        onTimeUpdate={handleAudioTimeUpdate}
+                        onEnded={handleAudioEnded}
                       />
-                      <div className="peer h-6 w-11 rounded-full bg-zinc-800 border border-white/10 after:absolute after:top-0.5 after:left-[2px] after:h-5 after:w-5 after:rounded-full after:bg-zinc-400 after:transition-all peer-checked:bg-indigo-600 peer-checked:after:translate-x-full peer-checked:after:bg-white" />
-                    </label>
+                    </div>
                   </div>
-
-                  {isNarratorEnabled && voices.length > 0 && (
-                    <>
-                      {/* Voice Selection */}
-                      <div className="flex flex-col gap-1.5 border-b border-white/5 pb-4">
-                        <label className="text-xs text-zinc-400">Select Narrator Voice</label>
-                        <select
-                          value={selectedVoiceName}
-                          onChange={(e) => setSelectedVoiceName(e.target.value)}
-                          className="rounded-xl border border-white/10 bg-zinc-950 p-2.5 text-xs text-zinc-200 outline-none focus:border-indigo-500"
-                        >
-                          {voices.map((v) => (
-                            <option key={v.name} value={v.name}>
-                              {v.name} ({v.lang})
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {/* Speaking indicator wave animation */}
-                      {isPlaying && (
-                        <div className="flex items-center gap-2 border-b border-white/5 pb-4">
-                          <span className="text-xs text-zinc-400">Narration level</span>
-                          <div className="flex items-end gap-[3px] h-4">
-                            <div className="w-[3px] bg-indigo-500 rounded-full animate-bounce [animation-duration:0.6s]" style={{ height: "60%" }} />
-                            <div className="w-[3px] bg-indigo-400 rounded-full animate-bounce [animation-duration:0.9s]" style={{ height: "90%" }} />
-                            <div className="w-[3px] bg-purple-500 rounded-full animate-bounce [animation-duration:0.7s]" style={{ height: "40%" }} />
-                            <div className="w-[3px] bg-purple-400 rounded-full animate-bounce [animation-duration:1.1s]" style={{ height: "75%" }} />
-                            <div className="w-[3px] bg-pink-500 rounded-full animate-bounce [animation-duration:0.8s]" style={{ height: "50%" }} />
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  )}
 
                   {/* Playback Speed controls */}
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-zinc-400">Narrator speed</span>
+                    <span className="text-xs text-zinc-400">WAV playback speed</span>
                     <div className="flex gap-1.5">
                       {[1, 1.25, 1.5].map((speed) => (
                         <button
@@ -605,14 +463,14 @@ export default function TeaserPage() {
 
                 <div className="mt-4 flex-1 flex flex-col gap-4 overflow-y-auto pr-1">
                   {activeScene.voiceover.map((p, idx) => {
-                    const isCurrent = idx === speakingParagraphIndex && isPlaying && isNarratorEnabled;
+                    const isCurrent = idx === speakingParagraphIndex && isPlaying;
                     return (
                       <p
                         key={idx}
                         className={`text-base leading-relaxed transition-all duration-300 ${
                           isCurrent
                             ? "text-indigo-400 font-medium scale-[1.01] translate-x-1"
-                            : isPlaying && isNarratorEnabled
+                            : isPlaying
                             ? "text-zinc-600 opacity-60"
                             : "text-zinc-300"
                         }`}
