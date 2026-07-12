@@ -2,7 +2,7 @@ const arrowIcon = { src: "/arrow.png" };
 const magnifyingGlassIcon = { src: "/magnifying-glass.png" };
 const newMessageIcon = { src: "/new-message.png" };
 const sidebarIcon = { src: "/sidebar.png" };
-const thinkingIcon = { src: "/thinking.png" };
+const nexaLogoIcon = { src: "/nexa-logo.png" };
 
 type IconProps = {
   className?: string;
@@ -34,11 +34,11 @@ export function IconChevronDown({ className = "h-4 w-4" }: IconProps) {
   );
 }
 
-/** Assistant avatar in the message thread (thinking icon from assets). */
+/** Assistant avatar in the message thread. */
 export function NexaMark({ className = "h-7 w-7" }: IconProps) {
   return (
     <img
-      src={thinkingIcon.src}
+      src={nexaLogoIcon.src}
       alt=""
       className={[className, "rounded-sm object-contain"].join(" ")}
     />

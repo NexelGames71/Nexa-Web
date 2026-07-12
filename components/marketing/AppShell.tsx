@@ -30,7 +30,8 @@ export default function AppShell({
     <div className="min-h-screen bg-shell text-ink">
       <header className="sticky top-0 z-40 border-b border-line/80 bg-shell/90 backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-5">
-          <Link href="/chat" className="text-lg font-semibold tracking-tight">
+          <Link href="/chat" className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+            <img src="/nexa-logo.png" alt="" className="h-8 w-8 object-contain" />
             {BRAND.name}
           </Link>
           <nav className="hidden items-center gap-5 md:flex">
