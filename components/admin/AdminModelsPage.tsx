@@ -44,6 +44,14 @@ type ModelRecord = {
   runtime?: string;
   usageSource?: string;
   updatedAt: string;
+  lastUsedAt?: string;
+};
+
+type ModelsMeta = {
+  usageRows?: number;
+  usageRowsFetched?: number;
+  periodStart?: string;
+  updatedAt?: string;
 };
 
 function statusTone(status: string) {
@@ -63,11 +71,15 @@ async function fetchModels(authorizedFetch: (path: string, options?: RequestInit
   if (!response.ok) {
     throw new Error(data.error || "Failed to load model registry.");
   }
-  return data.items || [];
+  return {
+    items: data.items || [],
+    meta: data.meta || {},
+  };
 }
 
 export default function AdminModelsPage() {
   const [models, setModels] = useState<ModelRecord[]>([]);
+  const [meta, setMeta] = useState<ModelsMeta>({});
   const [authToken, setAuthToken] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -104,12 +116,16 @@ export default function AdminModelsPage() {
   }
 
   async function loadModels() {
-    setLoading(true);
+    setLoading((current) => current || models.length === 0);
     setError("");
     try {
-      const items = await fetchModels(authorizedFetch);
+      const { items, meta: nextMeta } = await fetchModels(authorizedFetch);
       setModels(items);
-      setSelectedModel((current) => current || items[0] || null);
+      setMeta(nextMeta);
+      setSelectedModel((current) => {
+        if (!current) return items[0] || null;
+        return items.find((item: ModelRecord) => item.id === current.id) || items[0] || null;
+      });
     } catch (loadError: any) {
       setError(loadError?.message || "Failed to load model registry.");
     } finally {
@@ -120,6 +136,14 @@ export default function AdminModelsPage() {
   useEffect(() => {
     void loadModels();
   }, []);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      void loadModels();
+    }, 15000);
+
+    return () => window.clearInterval(interval);
+  }, [authToken, models.length]);
 
   const filteredModels = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -166,7 +190,7 @@ export default function AdminModelsPage() {
         subtitle="Route, monitor, and control every active Nexa text, image, voice, speech, wake, and browser automation model."
         right={
           <>
-            <LiveRefreshBadge label={loading ? "Refreshing registry" : "Registry synced"} />
+            <LiveRefreshBadge label={loading ? "Refreshing live usage" : "Live usage synced"} />
             <AdminButton variant="primary" onClick={() => void loadModels()}>
               Refresh
             </AdminButton>
@@ -179,12 +203,15 @@ export default function AdminModelsPage() {
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Total models" value={totals.total} note="Active Nexa model stack" tone="dark" />
         <StatCard label="Active models" value={totals.active} note="Serving production traffic" tone="healthy" />
-        <StatCard label="Requests today" value={totals.requests} note="From model usage records" tone="info" />
+        <StatCard label="Requests today" value={totals.requests} note={`${formatNumber(meta.usageRows || 0)} usage rows today`} tone="info" />
         <StatCard label="Error rate" value={totals.errors} note={`Avg latency ${totals.latency}ms`} tone={totals.errors > 2 ? "warning" : "healthy"} />
       </div>
 
       <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(360px,0.8fr)]">
-        <AdminPanel title="Active model registry" subtitle="Production backends with provider, routing, plan access, limits, health, and usage metadata.">
+        <AdminPanel
+          title="Active model registry"
+          subtitle={`Production backends with live request, token, latency, and error telemetry. Last sync ${meta.updatedAt ? new Date(meta.updatedAt).toLocaleTimeString() : "pending"}.`}
+        >
           {loading ? (
             <LoadingSkeleton rows={8} />
           ) : (
@@ -237,6 +264,7 @@ export default function AdminModelsPage() {
                     { key: "tokens", label: "Tokens", render: (model) => formatNumber(Number(model.inputTokens || 0) + Number(model.outputTokens || 0)) },
                     { key: "latency", label: "Latency", render: (model) => `${model.avgLatencyMs || 0}ms` },
                     { key: "errors", label: "Errors", render: (model) => `${model.errorRate || 0}%` },
+                    { key: "lastUsed", label: "Last used", render: (model) => model.lastUsedAt ? new Date(model.lastUsedAt).toLocaleTimeString() : "No traffic" },
                   ]}
                 />
               </div>
@@ -289,6 +317,7 @@ export default function AdminModelsPage() {
                 <p><span className="font-semibold text-ink">Runtime:</span> {selectedModel.runtime || "Not configured"}</p>
                 <p><span className="font-semibold text-ink">Input tokens:</span> {formatNumber(selectedModel.inputTokens)}</p>
                 <p><span className="font-semibold text-ink">Output tokens:</span> {formatNumber(selectedModel.outputTokens)}</p>
+                <p><span className="font-semibold text-ink">Last used:</span> {selectedModel.lastUsedAt ? new Date(selectedModel.lastUsedAt).toLocaleString() : "No traffic today"}</p>
                 <p><span className="font-semibold text-ink">Usage source:</span> {selectedModel.usageSource || "Model usage records"}</p>
               </div>
             </AdminPanel>

@@ -29,6 +29,12 @@ import {
   recordPlanUsage,
 } from "../../../lib/server/plan-usage";
 import {
+  imageModelId,
+  recordModelUsage,
+  textModelId,
+  usageFromBackendUsage,
+} from "../../../lib/server/model-usage";
+import {
   assertGeneratedImageStorageConfigured as assertGeneratedImageStorageConfiguredForFlow,
   createBackendImageJob as createBackendImageJobForFlow,
 } from "../../../lib/server/image-generation-flow";
@@ -621,7 +627,7 @@ async function generateBackendImage(args) {
     if (!directResponse.ok) {
       if (directResponse.status === 404) {
         throw new Error(
-          `Image generation backend is not available at ${IMAGE_BACKEND_URL}. Start the Nexa image API or set NEXA_IMAGE_API_URL to the image-capable backend.`,
+          `Image generation is not available at ${IMAGE_BACKEND_URL}. Start the unified C:\\Nexa API or set NEXA_IMAGE_API_URL to the same API hostname.`,
         );
       }
       throw new Error((await directResponse.text()) || `Image generation failed (${directResponse.status}).`);
@@ -1898,6 +1904,7 @@ async function persistMemorySafely(userId, content, fallbackMemory) {
 }
 
 export async function POST(request) {
+  const requestStartedAt = Date.now();
   const body = await request.json();
 
   if (Array.isArray(body.messages) && !body.message) {
@@ -2130,6 +2137,16 @@ export async function POST(request) {
           userId: auth.user.$id,
         });
         const reply = imageResult.reply;
+        await recordModelUsage({
+          modelId: imageModelId(),
+          userId: auth.user.$id,
+          mode: "image",
+          requestCount: 1,
+          inputTokens: Math.max(1, Math.ceil(content.length / 4)),
+          outputTokens: 0,
+          latencyMs: Date.now() - requestStartedAt,
+          errorCount: imageResult.image ? 0 : 1,
+        });
 
         const savedAssistantMessage = await saveMessage({
           userId: auth.user.$id,
@@ -2219,6 +2236,16 @@ export async function POST(request) {
         const backendImageJob = await createBackendImageJobForFlow({
           ...imageArgs,
           raw_user_intent: content,
+        });
+        await recordModelUsage({
+          modelId: imageModelId(),
+          userId: auth.user.$id,
+          mode: "image",
+          requestCount: 1,
+          inputTokens: Math.max(1, Math.ceil(content.length / 4)),
+          outputTokens: 0,
+          latencyMs: Date.now() - requestStartedAt,
+          errorCount: 0,
         });
         const initialConversation = {
           $id: conversationId,
@@ -2459,6 +2486,17 @@ export async function POST(request) {
               });
 
               const updatedMemory = await persistMemorySafely(auth.user.$id, content, initialMemory);
+              const streamedUsage = usageFromBackendUsage(null, modelMessages.map((message) => message.content).join("\n"), reply);
+              await recordModelUsage({
+                modelId: textModelId(),
+                userId: auth.user.$id,
+                mode: responseMode,
+                requestCount: 1,
+                inputTokens: streamedUsage.inputTokens,
+                outputTokens: streamedUsage.outputTokens,
+                latencyMs: Date.now() - requestStartedAt,
+                errorCount: 0,
+              });
 
               controller.enqueue(
                 sseEvent("done", {
@@ -2564,6 +2602,21 @@ export async function POST(request) {
       lastMessagePreview: reply.slice(0, 120),
     });
     const updatedMemory = await persistMemorySafely(auth.user.$id, content, initialMemory);
+    const backendUsage = usageFromBackendUsage(
+      backendData.usage,
+      modelMessages.map((message) => message.content).join("\n"),
+      reply,
+    );
+    await recordModelUsage({
+      modelId: textModelId(),
+      userId: auth.user.$id,
+      mode: responseMode,
+      requestCount: 1,
+      inputTokens: backendUsage.inputTokens,
+      outputTokens: backendUsage.outputTokens,
+      latencyMs: Date.now() - requestStartedAt,
+      errorCount: 0,
+    });
 
     return Response.json({
       reply,
@@ -2578,6 +2631,16 @@ export async function POST(request) {
       usageWarnings,
     });
   } catch (error) {
+    await recordModelUsage({
+      modelId: imageGenerationRequested ? imageModelId() : textModelId(),
+      userId: auth.user.$id,
+      mode: imageGenerationRequested ? "image" : responseMode,
+      requestCount: 1,
+      inputTokens: Math.max(1, Math.ceil(content.length / 4)),
+      outputTokens: 0,
+      latencyMs: Date.now() - requestStartedAt,
+      errorCount: 1,
+    });
     return Response.json(
       { error: error?.message || "Failed to send chat message.", conversationId },
       { status: 500 },

@@ -71,7 +71,7 @@ const ACTIVE_NEXA_MODELS = [
       "local device selection",
     ],
     endpoint: "/v1/audio/speech",
-    runtime: "C:\\Nexa Ai voice runtime",
+    runtime: "C:\\Nexa unified voice runtime",
     usageSource: "Voice usage rows when present",
     updatedAt: "2026-07-12",
   },
@@ -87,7 +87,7 @@ const ACTIVE_NEXA_MODELS = [
     planAccess: ["Free", "Plus", "Pro", "Business"],
     features: ["speech synthesis", "streamable audio", "rate control", "pitch control"],
     endpoint: "/v1/audio/speech",
-    runtime: "C:\\Nexa Ai voice runtime",
+    runtime: "C:\\Nexa unified voice runtime",
     usageSource: "Voice usage rows when present",
     updatedAt: "2026-07-12",
   },
@@ -103,7 +103,7 @@ const ACTIVE_NEXA_MODELS = [
     planAccess: ["Pro", "Business"],
     features: ["hosted speech synthesis", "voice id routing", "low latency speech"],
     endpoint: "/v1/audio/speech",
-    runtime: "C:\\Nexa Ai voice runtime",
+    runtime: "C:\\Nexa unified voice runtime",
     usageSource: "Voice usage rows when present",
     updatedAt: "2026-07-12",
   },
@@ -119,7 +119,7 @@ const ACTIVE_NEXA_MODELS = [
     planAccess: ["Free", "Plus", "Pro", "Business"],
     features: ["speech-to-text", "CUDA-aware loading", "CPU fallback", "voice input"],
     endpoint: "/v1/audio/transcriptions",
-    runtime: "C:\\Nexa Ai speech runtime",
+    runtime: "C:\\Nexa unified speech runtime",
     usageSource: "Speech usage rows when present",
     updatedAt: "2026-07-12",
   },
@@ -135,7 +135,7 @@ const ACTIVE_NEXA_MODELS = [
     planAccess: ["Plus", "Pro", "Business"],
     features: ["hands-free activation", "local ONNX wake model", "voice session trigger"],
     endpoint: "/v1/voice/wake",
-    runtime: "C:\\Nexa Ai wake runtime",
+    runtime: "C:\\Nexa unified wake runtime",
     usageSource: "Wake usage rows when present",
     updatedAt: "2026-07-12",
   },
@@ -155,6 +155,17 @@ function parseJsonList(value: unknown) {
   }
 }
 
+function startOfTodayIso() {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  return date.toISOString();
+}
+
+function filterTodayUsage(usage: any[]) {
+  const start = startOfTodayIso();
+  return (usage || []).filter((item) => String(item.createdAt || item.$createdAt || "") >= start);
+}
+
 function modelFromDocument(document: any, usage: any[]) {
   const usageForModel = usage.filter((item) => item.modelId === document.modelId);
   const totals = usageForModel.reduce(
@@ -166,8 +177,21 @@ function modelFromDocument(document: any, usage: any[]) {
       errorCount: acc.errorCount + Number(item.errorCount || 0),
       costEstimate: acc.costEstimate + Number(item.costEstimate || 0),
       rows: acc.rows + 1,
+      lastUsedAt:
+        String(item.createdAt || item.$createdAt || "") > String(acc.lastUsedAt || "")
+          ? String(item.createdAt || item.$createdAt || "")
+          : acc.lastUsedAt,
     }),
-    { requestsToday: 0, inputTokens: 0, outputTokens: 0, latencyMs: 0, errorCount: 0, costEstimate: 0, rows: 0 },
+    {
+      requestsToday: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+      latencyMs: 0,
+      errorCount: 0,
+      costEstimate: 0,
+      rows: 0,
+      lastUsedAt: "",
+    },
   );
 
   return {
@@ -190,7 +214,8 @@ function modelFromDocument(document: any, usage: any[]) {
     endpoint: document.endpoint || "",
     runtime: document.runtime || "",
     usageSource: document.usageSource || "Appwrite model_usage",
-    updatedAt: document.updatedAt || document.$updatedAt || "",
+    updatedAt: totals.lastUsedAt || document.updatedAt || document.$updatedAt || "",
+    lastUsedAt: totals.lastUsedAt,
   };
 }
 
@@ -227,7 +252,8 @@ export async function GET(request: Request) {
       ]),
     ]);
 
-    const items = mergeActiveModelDefaults(models.documents || [], usage.documents || []);
+    const usageToday = filterTodayUsage(usage.documents || []);
+    const items = mergeActiveModelDefaults(models.documents || [], usageToday);
 
     return Response.json({
       items,
@@ -235,7 +261,10 @@ export async function GET(request: Request) {
         totalModels: items.length,
         registryModels: models.total || models.documents?.length || 0,
         defaultActiveModels: ACTIVE_NEXA_MODELS.length,
-        usageRows: usage.total || usage.documents?.length || 0,
+        usageRows: usageToday.length,
+        usageRowsFetched: usage.documents?.length || 0,
+        periodStart: startOfTodayIso(),
+        updatedAt: new Date().toISOString(),
       },
     });
   } catch (error: any) {

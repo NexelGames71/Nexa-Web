@@ -19,7 +19,7 @@ copy C:\Nexa\frontend\.env.local.example .env.local
 Required:
 
 - `NEXT_PUBLIC_API_URL` - Nexa Python API. Use `https://api.trynexa-ai.com` in production and `http://127.0.0.1:8000` for local-only development.
-- `NEXA_IMAGE_API_URL` - image-capable Nexa API. Keep this the same as `NEXT_PUBLIC_API_URL` when the unified backend proxies image routes.
+- `NEXA_IMAGE_API_URL` - unified Nexa API for image routes. Keep this the same as `NEXT_PUBLIC_API_URL`.
 - `NEXT_PUBLIC_APPWRITE_*` and server `APPWRITE_*` keys for chat, memory, and admin
 - Admin accounts are identified by email local-part prefix: `admin.name@example.com`.
 - `trynexa-ai.com/admin` is allowed to load the admin route, but only `admin.*@...` accounts can stay there.
@@ -28,7 +28,7 @@ Required:
 Start the backend from `C:\Nexa`:
 
 ```bash
-uvicorn api:app --reload --port 8000
+.\start_backend.ps1
 ```
 
 ## Stable model API tunnel
