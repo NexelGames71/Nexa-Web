@@ -23,6 +23,7 @@ export default function AuthForm({
 }: AuthFormProps) {
   const router = useRouter();
   const { refresh, isAuthenticated, isAdmin } = useAuth();
+  const adminAppUrl = process.env.NEXT_PUBLIC_NEXA_ADMIN_URL || "";
   const [assistantName, setAssistantName] = useState("Nexa");
   const [authForm, setAuthForm] = useState({ name: "", email: "", password: "" });
   const [authLoading, setAuthLoading] = useState(true);
@@ -46,7 +47,7 @@ export default function AuthForm({
       } catch {}
 
       if (isAuthenticated) {
-        router.replace(isAdmin ? "/admin" : "/chat");
+        router.replace(isAdmin && adminAppUrl ? adminAppUrl : "/chat");
         return;
       }
 
@@ -74,7 +75,7 @@ export default function AuthForm({
       await refresh();
       notifyAuthChanged();
       const user = await account.get();
-      router.replace(isAdminEmail(user.email) ? "/admin" : "/chat");
+      router.replace(isAdminEmail(user.email) && adminAppUrl ? adminAppUrl : "/chat");
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Authentication failed.";
       setAuthError(message);

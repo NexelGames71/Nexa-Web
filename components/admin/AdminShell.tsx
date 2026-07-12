@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { account, appwriteConfigured } from "../../lib/appwrite";
+import { account, appwriteConfigured, isAdminEmail } from "../../lib/appwrite";
 import { BRAND } from "../../lib/site-content";
 
 export const ADMIN_NAV = [
@@ -52,15 +52,11 @@ function NavIcon({ name }: { name?: string }) {
 
 export default function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [user, setUser] = useState<{ name?: string; email?: string } | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const adminEmails = (process.env.NEXT_PUBLIC_APPWRITE_ADMIN_EMAILS || "")
-    .split(",")
-    .map((item) => item.trim().toLowerCase())
-    .filter(Boolean);
-  const userEmail = String(user?.email || "").toLowerCase();
-  const isKnownAdmin = !appwriteConfigured || adminEmails.length === 0 || Boolean(userEmail && adminEmails.includes(userEmail));
+  const isKnownAdmin = !appwriteConfigured || isAdminEmail(user?.email);
 
   useEffect(() => {
     if (!appwriteConfigured) {
@@ -73,6 +69,18 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
       .catch(() => setUser(null))
       .finally(() => setAuthChecked(true));
   }, []);
+
+  useEffect(() => {
+    if (!authChecked || !appwriteConfigured || isKnownAdmin) {
+      return;
+    }
+
+    router.replace(user ? "/chat" : "/login");
+  }, [authChecked, isKnownAdmin, router, user]);
+
+  if (authChecked && appwriteConfigured && !isKnownAdmin) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-shell text-ink">
@@ -156,23 +164,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
           </div>
         </aside>
 
-        <main className="min-w-0">
-          {authChecked && !isKnownAdmin ? (
-            <div className="grid min-h-screen place-items-center p-6">
-              <section className="max-w-md rounded-3xl border border-red-200 bg-red-50 p-6 text-red-800 shadow-soft">
-                <p className="text-lg font-semibold">Admin access required</p>
-                <p className="mt-2 text-sm leading-6">
-                  This account is signed in but is not listed in the admin allowlist. Use an administrator account or update the server-side admin configuration.
-                </p>
-                <Link href="/chat" className="mt-5 inline-flex rounded-xl border border-red-200 bg-white px-4 py-2 text-sm font-medium">
-                  Back to chat
-                </Link>
-              </section>
-            </div>
-          ) : (
-            children
-          )}
-        </main>
+        <main className="min-w-0">{children}</main>
       </div>
     </div>
   );

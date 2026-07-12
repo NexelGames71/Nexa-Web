@@ -28,6 +28,7 @@ const closeIcon = { src: "/close.png" };
 const databaseIcon = { src: "/database.png" };
 const nextIcon = { src: "/next.png" };
 const QUICK_ACTIONS = ["Create an image", "Write or edit", "Look something up"];
+const ADMIN_APP_URL = process.env.NEXT_PUBLIC_NEXA_ADMIN_URL || "";
 const WEB_SEARCH_HINT_KEYWORDS = [
   "current",
   "latest",
@@ -471,8 +472,8 @@ export default function NexaWorkspace({
           fetch("/api/ui-config"),
         ]);
 
-        if (isAdminEmail(user.email)) {
-          router.replace("/admin");
+        if (isAdminEmail(user.email) && ADMIN_APP_URL) {
+          router.replace(ADMIN_APP_URL);
           return;
         }
 
@@ -541,8 +542,8 @@ export default function NexaWorkspace({
 
   useEffect(() => {
     const isSettingsRoute = routeMode === "settings";
-    if (isSettingsRoute && currentUser && isAdminEmail(currentUser.email)) {
-      router.replace("/admin");
+    if (isSettingsRoute && currentUser && isAdminEmail(currentUser.email) && ADMIN_APP_URL) {
+      router.replace(ADMIN_APP_URL);
       return;
     }
     setMemoryModalOpen(isSettingsRoute);
@@ -2392,6 +2393,8 @@ export default function NexaWorkspace({
   }
 
   const showChatTopBar = !isEmpty || Boolean(activeConversationId);
+  const isCurrentUserAdmin = isAdminEmail(currentUser?.email);
+  const adminHref = ADMIN_APP_URL || "/admin";
 
   return (
     <div className="flex h-screen overflow-hidden bg-chat-surface text-ink">
@@ -2517,6 +2520,19 @@ export default function NexaWorkspace({
                       <div className="my-2 border-t border-line" />
 
                       <div className="space-y-1">
+                        {isCurrentUserAdmin ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAccountSheetOpen(false);
+                              router.push(adminHref);
+                            }}
+                            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-ink transition hover:bg-black/[0.03]"
+                          >
+                            <span className="w-4 text-center text-[15px] text-muted">#</span>
+                            <span>Admin Dashboard</span>
+                          </button>
+                        ) : null}
                         <button
                           type="button"
                           onClick={() => openSettings("billing")}
@@ -2640,6 +2656,8 @@ export default function NexaWorkspace({
             addMenuOpen={addMenuOpen}
             setAddMenuOpen={setAddMenuOpen}
             onOpenSidebar={() => setMobileSidebarOpen(true)}
+            adminHref={adminHref}
+            showAdminDashboard={isCurrentUserAdmin}
           />
         ) : null}
 
@@ -2824,6 +2842,19 @@ export default function NexaWorkspace({
                       </div>
 
                       <div className="mx-3 rounded-[22px] bg-black/[0.03] p-2">
+                        {isCurrentUserAdmin ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAccountSheetOpen(false);
+                              router.push(adminHref);
+                            }}
+                            className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-medium text-ink transition hover:bg-black/[0.03]"
+                          >
+                            <span className="w-4 text-center text-[15px] text-muted">#</span>
+                            <span>Admin Dashboard</span>
+                          </button>
+                        ) : null}
                         <button
                           type="button"
                           onClick={() => openSettings("billing")}

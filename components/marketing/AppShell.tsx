@@ -24,7 +24,8 @@ export default function AppShell({
 }) {
   const pathname = usePathname();
   const { isAuthenticated, isAdmin, loading } = useAuth();
-  const chatHref = isAdmin ? "/admin" : "/chat";
+  const adminAppUrl = process.env.NEXT_PUBLIC_NEXA_ADMIN_URL || "";
+  const adminHref = adminAppUrl || "/admin";
 
   return (
     <div className="min-h-screen bg-shell text-ink">
@@ -52,12 +53,22 @@ export default function AppShell({
             })}
           </nav>
           {!loading && isAuthenticated ? (
-            <Link
-              href={chatHref}
-              className="rounded-full bg-ink px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
-            >
-              Open Nexa
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link
+                href="/chat"
+                className="rounded-full bg-ink px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
+              >
+                Open Nexa
+              </Link>
+              {isAdmin ? (
+                <Link
+                  href={adminHref}
+                  className="rounded-full border border-ink bg-panel px-4 py-2 text-sm font-medium text-ink transition hover:bg-ink hover:text-white"
+                >
+                  Admin Dashboard
+                </Link>
+              ) : null}
+            </div>
           ) : (
             <Link
               href="/"

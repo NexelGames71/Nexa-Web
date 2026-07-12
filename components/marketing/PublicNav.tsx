@@ -9,7 +9,8 @@ export default function PublicNav() {
   const [open, setOpen] = useState(false);
   const { user, loading, isAuthenticated, isAdmin, signOut } = useAuth();
 
-  const chatHref = isAdmin ? "/admin" : "/chat";
+  const adminAppUrl = process.env.NEXT_PUBLIC_NEXA_ADMIN_URL || "";
+  const adminHref = adminAppUrl || "/admin";
   const initial = (user?.name || user?.email || "U").slice(0, 1).toUpperCase();
   const planLabel = user?.planName && user.planName !== "Starter" ? user.planName : "";
 
@@ -39,11 +40,19 @@ export default function PublicNav() {
           ) : isAuthenticated ? (
             <>
               <Link
-                href={chatHref}
+                href="/chat"
                 className="rounded-full bg-ink px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
               >
                 Open Nexa
               </Link>
+              {isAdmin ? (
+                <Link
+                  href={adminHref}
+                  className="rounded-full border border-ink bg-panel px-4 py-2 text-sm font-medium text-ink transition hover:bg-ink hover:text-white"
+                >
+                  Admin Dashboard
+                </Link>
+              ) : null}
               <Link
                 href="/settings/profile"
                 className="flex items-center gap-2 rounded-full border border-line bg-panel py-1.5 pl-1.5 pr-3 text-sm transition hover:border-ink/20"
@@ -108,9 +117,14 @@ export default function PublicNav() {
             ))}
             {isAuthenticated ? (
               <>
-                <Link href={chatHref} className="text-sm font-medium text-ink" onClick={() => setOpen(false)}>
+                <Link href="/chat" className="text-sm font-medium text-ink" onClick={() => setOpen(false)}>
                   Open Nexa
                 </Link>
+                {isAdmin ? (
+                  <Link href={adminHref} className="text-sm font-medium text-ink" onClick={() => setOpen(false)}>
+                    Admin Dashboard
+                  </Link>
+                ) : null}
                 <Link
                   href="/settings/profile"
                   className="text-sm text-muted"

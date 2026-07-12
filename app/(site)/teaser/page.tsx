@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 
 interface Scene {
   id: number;
@@ -11,81 +10,134 @@ interface Scene {
   mockupType: "multitask" | "chat" | "browser" | "usecases" | "personalization" | "ecosystem" | "closing";
 }
 
+interface VoiceSample {
+  id: string;
+  name: string;
+  source: string;
+  description: string;
+  format: string;
+}
+
+const NEXA_FACTS = [
+  { label: "Private model runtime", value: "Qwen3 local inference with CUDA acceleration" },
+  { label: "Core workspace", value: "Chat, memory, image generation, search, billing, and admin controls" },
+  { label: "Browser direction", value: "Page reading, summaries, tab-aware assistance, and workflow automation" },
+  { label: "Voice stack", value: "F5-TTS and Qwen3-TTS research models prepared for Nexa Voice" }
+];
+
+const VOICE_SAMPLES: VoiceSample[] = [
+  {
+    id: "f5-reference-en",
+    name: "Nexa F5 Reference EN",
+    source: "/voices/nexa-f5-reference-en.wav",
+    description: "English F5-TTS reference voice copied from the Nexa speech model assets.",
+    format: "WAV"
+  },
+  {
+    id: "f5-main",
+    name: "Nexa F5 Main",
+    source: "/voices/nexa-f5-main.flac",
+    description: "Primary multi-speaker F5-TTS sample used for voice matching tests.",
+    format: "FLAC"
+  },
+  {
+    id: "f5-country",
+    name: "Nexa F5 Country",
+    source: "/voices/nexa-f5-country.flac",
+    description: "Secondary F5-TTS voice style sample from the local Nexa model set.",
+    format: "FLAC"
+  },
+  {
+    id: "f5-town",
+    name: "Nexa F5 Town",
+    source: "/voices/nexa-f5-town.flac",
+    description: "Alternate F5-TTS reference sample for testing voice variety.",
+    format: "FLAC"
+  },
+  {
+    id: "f5-reference-zh",
+    name: "Nexa F5 Reference ZH",
+    source: "/voices/nexa-f5-reference-zh.wav",
+    description: "Chinese F5-TTS reference voice retained for multilingual voice work.",
+    format: "WAV"
+  }
+];
+
 const SCENES: Scene[] = [
   {
     id: 1,
-    title: "Opening Scene",
-    visualDescription: "Visual: Fast shots of someone working on a laptop, switching between tabs, typing, searching, and reviewing documents.",
+    title: "Nexa Mission",
+    visualDescription: "Visual: A focused workspace where chat, browser context, files, voice, and image tools are visible as one product.",
     voiceover: [
-      "In a world where everything moves fast, you need more than just another chatbot.",
-      "You need an AI that understands your workflow, helps you move faster, and supports the way you actually work.",
-      "Introducing Nexa AI and Nexa Web."
+      "Nexa AI is a private AI assistant and browser platform from Nexa Labs.",
+      "It is being built as more than a chatbot: a workspace that can chat, remember useful context, help research the web, generate images, and support voice interaction.",
+      "The goal is a fast, capable assistant that feels integrated with how people actually work."
     ],
     mockupType: "multitask"
   },
   {
     id: 2,
-    title: "Scene 2 — Nexa AI Interface",
-    visualDescription: "Visual: Nexa AI chat interface. User asks a question. AI responds clearly.",
+    title: "Nexa Chat",
+    visualDescription: "Visual: Nexa Chat streaming a structured answer with Fast, Thinker, and Deep Thinker modes available.",
     voiceover: [
-      "Nexa AI is your intelligent assistant built to help with research, writing, planning, learning, coding, business tasks, and everyday productivity.",
-      "Whether you need to summarize information, generate ideas, write content, solve problems, or get step-by-step guidance, Nexa AI is designed to help you think, create, and execute faster."
+      "Nexa Chat runs on a private local model API, with streaming responses so the assistant starts writing as it thinks.",
+      "Fast, Thinker, and Deep Thinker modes are designed to balance speed, depth, and token budget for different tasks.",
+      "Nexa can help with research, writing, code, planning, image prompts, and everyday productivity from the same workspace."
     ],
     mockupType: "chat"
   },
   {
     id: 3,
-    title: "Scene 3 — Nexa Web / Browser Experience",
-    visualDescription: "Visual: Browser interface with Nexa AI side panel or assistant overlay.",
+    title: "Nexa Web",
+    visualDescription: "Visual: Browser content being read by an assistant panel with page summaries and suggested next actions.",
     voiceover: [
       "With Nexa Web, AI becomes part of your browsing experience.",
-      "Instead of copying information from page to page, Nexa can help you understand what you’re reading, summarize web pages, explain complex topics, assist with online tasks, and keep your workflow organized.",
-      "It’s not just browsing. It’s intelligent browsing."
+      "It is designed to summarize pages, explain complex content, help with forms, manage tabs, and support user-approved workflows.",
+      "Sensitive actions are designed to require clear user confirmation before Nexa acts."
     ],
     mockupType: "browser"
   },
   {
     id: 4,
-    title: "Scene 4 — Use Cases",
-    visualDescription: "Visual: Quick cuts showing students, developers, business owners, creators, and professionals.",
+    title: "Who Nexa Helps",
+    visualDescription: "Visual: Students, developers, creators, founders, and teams using the same assistant for different outcomes.",
     voiceover: [
-      "For students, Nexa can help explain lessons, prepare study notes, and support research.",
-      "For developers, Nexa can assist with code, debugging, planning, and documentation.",
-      "For creators and marketers, Nexa can generate scripts, captions, ideas, and campaign content.",
-      "For businesses, Nexa can help with proposals, emails, workflows, customer support, and daily operations."
+      "Students can use Nexa for explanations, notes, and research support.",
+      "Developers can use Nexa for code review, debugging, architecture planning, and documentation.",
+      "Creators and businesses can use Nexa for briefs, scripts, proposals, support drafts, and workflow planning."
     ],
     mockupType: "usecases"
   },
   {
     id: 5,
-    title: "Scene 5 — Personalization / Memory Concept",
-    visualDescription: "Visual: User profile, settings, saved preferences, AI adapting to user.",
+    title: "Memory And Privacy",
+    visualDescription: "Visual: User-controlled memory profile with preferences, projects, and data controls separated clearly.",
     voiceover: [
-      "Nexa is being built to become more personal over time.",
-      "It can learn from your preferences, understand your goals, and help you work in a way that feels more natural and efficient.",
-      "The goal is simple: AI that feels less like a tool, and more like a real productivity partner."
+      "Nexa memory is built around user control.",
+      "The assistant can use saved preferences, project context, and workspace settings to answer more usefully over time.",
+      "Chat history, memory, browser activity, files, and generated assets are treated as separate data surfaces."
     ],
     mockupType: "personalization"
   },
   {
     id: 6,
-    title: "Scene 6 — Future Vision",
+    title: "Nexa Platform",
     visualDescription: "Visual: Nexa ecosystem screens: AI, Web, Cloud, API, Workspace.",
     voiceover: [
-      "Nexa is more than one product.",
-      "It is the beginning of an AI ecosystem — combining AI assistance, intelligent browsing, cloud tools, developer APIs, and productivity workspaces into one connected platform.",
-      "Built by Nexa Labs. Designed for the future of work."
+      "Nexa is becoming a connected AI platform.",
+      "The product direction includes chat, voice, memory, image generation, browser assistance, developer APIs, workspaces, and admin controls.",
+      "Built by Nexa Labs for private, practical AI work."
     ],
     mockupType: "ecosystem"
   },
   {
     id: 7,
-    title: "Closing Scene",
+    title: "Launch Preview",
     visualDescription: "Visual: Nexa AI logo, product UI, call-to-action text.",
     voiceover: [
       "Meet Nexa AI. Experience Nexa Web.",
-      "Work smarter. Browse smarter. Create faster.",
-      "The future of AI productivity starts with Nexa."
+      "A private assistant, browser companion, and productivity platform built by Nexa Labs.",
+      "Chat smarter. Browse smarter. Create faster."
     ],
     mockupType: "closing"
   }
@@ -100,15 +152,15 @@ export default function TeaserPage() {
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [selectedVoiceName, setSelectedVoiceName] = useState("");
   const [speakingParagraphIndex, setSpeakingParagraphIndex] = useState(0);
-  const [emailInput, setEmailInput] = useState("");
-  const [signupSuccess, setSignupSuccess] = useState(false);
-  const [signupError, setSignupError] = useState("");
+  const [selectedVoiceSampleId, setSelectedVoiceSampleId] = useState(VOICE_SAMPLES[0].id);
 
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const speechUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const progressTimerRef = useRef<number | null>(null);
   const [sceneProgress, setSceneProgress] = useState(0);
 
   const activeScene = SCENES[activeSceneIndex];
+  const selectedVoiceSample = VOICE_SAMPLES.find((sample) => sample.id === selectedVoiceSampleId) || VOICE_SAMPLES[0];
 
   // Speech Synthesis setup
   useEffect(() => {
@@ -230,32 +282,27 @@ export default function TeaserPage() {
     setIsPlaying((prev) => !prev);
   };
 
-  const handleSignupSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setSignupError("");
-
-    if (!emailInput || !emailInput.includes("@")) {
-      setSignupError("Please enter a valid email address.");
-      return;
-    }
-
-    setSignupSuccess(true);
+  const handlePlayVoiceSample = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.currentTime = 0;
+    void audio.play();
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#08080a] via-[#0d0d12] to-[#08080a] text-white">
+    <div className="min-h-screen bg-[#07080b] text-white">
       {/* Teaser Header Banner */}
       <div className="mx-auto max-w-6xl px-5 pt-8">
         <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between border-b border-white/10 pb-6">
-          <div>
+          <div className="max-w-3xl">
             <span className="rounded-full bg-indigo-500/10 px-3 py-1 text-xs font-semibold text-indigo-400 uppercase tracking-widest">
-              Interactive Teaser
+              Nexa Labs Product Preview
             </span>
             <h1 className="mt-2 text-2xl font-bold tracking-tight text-white md:text-3xl">
-              Meet Nexa AI & Nexa Web
+              Nexa AI and Nexa Web, shown as an interactive product teaser
             </h1>
             <p className="mt-1 text-sm text-zinc-400">
-              Go behind the scenes of our upcoming product release marketing video.
+              Explore the private AI assistant, browser companion, memory system, image tools, and voice direction behind Nexa.
             </p>
           </div>
 
@@ -284,6 +331,19 @@ export default function TeaserPage() {
               Storyboard View
             </button>
           </div>
+        </div>
+
+        <div className="grid gap-3 border-b border-white/10 py-6 md:grid-cols-4">
+          {NEXA_FACTS.map((fact) => (
+            <div key={fact.label} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+              <div className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">
+                {fact.label}
+              </div>
+              <div className="mt-2 text-sm leading-relaxed text-zinc-200">
+                {fact.value}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -354,7 +414,7 @@ export default function TeaserPage() {
                       className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/5 bg-zinc-950/40 text-zinc-400 hover:text-white disabled:opacity-40 transition"
                       aria-label="Previous scene"
                     >
-                      ←
+                      Prev
                     </button>
                     <button
                       onClick={handleNextScene}
@@ -362,7 +422,7 @@ export default function TeaserPage() {
                       className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/5 bg-zinc-950/40 text-zinc-400 hover:text-white disabled:opacity-40 transition"
                       aria-label="Next scene"
                     >
-                      →
+                      Next
                     </button>
                   </div>
                 </div>
@@ -383,17 +443,47 @@ export default function TeaserPage() {
               {/* Narration Controls Card */}
               <div className="rounded-3xl border border-white/10 bg-zinc-900/20 p-6 backdrop-blur-md">
                 <h3 className="text-sm font-bold text-white uppercase tracking-wider">
-                  Audio & voice settings
+                  Nexa voice previews
                 </h3>
                 <p className="mt-1 text-xs text-zinc-400">
-                  Read aloud the script narration using your browser Speech Synthesis.
+                  These are real F5-TTS reference clips copied from the local Nexa speech model assets.
                 </p>
 
                 <div className="mt-4 flex flex-col gap-4">
+                  <div className="rounded-2xl border border-white/10 bg-zinc-950/60 p-4">
+                    <div className="flex flex-col gap-3">
+                      <label className="text-xs font-semibold uppercase tracking-widest text-zinc-500">
+                        AI voice sample
+                      </label>
+                      <select
+                        value={selectedVoiceSampleId}
+                        onChange={(e) => setSelectedVoiceSampleId(e.target.value)}
+                        className="rounded-xl border border-white/10 bg-zinc-950 p-2.5 text-xs text-zinc-200 outline-none focus:border-indigo-500"
+                      >
+                        {VOICE_SAMPLES.map((sample) => (
+                          <option key={sample.id} value={sample.id}>
+                            {sample.name} ({sample.format})
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-xs leading-relaxed text-zinc-400">
+                        {selectedVoiceSample.description}
+                      </p>
+                      <audio ref={audioRef} src={selectedVoiceSample.source} controls className="w-full" />
+                      <button
+                        type="button"
+                        onClick={handlePlayVoiceSample}
+                        className="rounded-xl bg-white px-3 py-2 text-xs font-semibold text-zinc-950 transition hover:bg-zinc-200"
+                      >
+                        Play selected Nexa voice
+                      </button>
+                    </div>
+                  </div>
+
                   {/* Narrator Voice Toggle */}
                   <div className="flex items-center justify-between border-b border-white/5 pb-4">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm text-zinc-300">Voice Narration</span>
+                      <span className="text-sm text-zinc-300">Read script with browser narrator</span>
                     </div>
                     <label className="relative inline-flex cursor-pointer items-center">
                       <input
@@ -430,7 +520,7 @@ export default function TeaserPage() {
                       {/* Speaking indicator wave animation */}
                       {isPlaying && (
                         <div className="flex items-center gap-2 border-b border-white/5 pb-4">
-                          <span className="text-xs text-zinc-400">Audio Wave:</span>
+                          <span className="text-xs text-zinc-400">Narration level</span>
                           <div className="flex items-end gap-[3px] h-4">
                             <div className="w-[3px] bg-indigo-500 rounded-full animate-bounce [animation-duration:0.6s]" style={{ height: "60%" }} />
                             <div className="w-[3px] bg-indigo-400 rounded-full animate-bounce [animation-duration:0.9s]" style={{ height: "90%" }} />
@@ -445,7 +535,7 @@ export default function TeaserPage() {
 
                   {/* Playback Speed controls */}
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-zinc-400">Speed Multiplier</span>
+                    <span className="text-xs text-zinc-400">Narrator speed</span>
                     <div className="flex gap-1.5">
                       {[1, 1.25, 1.5].map((speed) => (
                         <button
@@ -485,7 +575,7 @@ export default function TeaserPage() {
                             : "text-zinc-300"
                         }`}
                       >
-                        {isCurrent && <span className="inline-block mr-1">🎙️</span>}
+                        {isCurrent && <span className="inline-block mr-1">Live:</span>}
                         {p}
                       </p>
                     );
@@ -557,7 +647,7 @@ export default function TeaserPage() {
                       className="rounded-xl bg-white/10 px-4 py-2 text-xs font-medium text-white hover:bg-white/15 transition flex items-center gap-1.5"
                     >
                       <span>Preview Scene</span>
-                      <span>→</span>
+                      <span>Next</span>
                     </button>
                   </div>
                 </div>
@@ -655,7 +745,7 @@ function MockupMultitask({ isPlaying }: { isPlaying: boolean }) {
           <div className="text-zinc-400 flex flex-col h-full justify-between">
             <div className="space-y-2">
               <div className="flex items-center gap-2 rounded-lg bg-zinc-950 p-2 border border-white/5">
-                <span className="text-emerald-500 text-xs">🔒</span>
+                <span className="text-emerald-500 text-xs">TLS</span>
                 <span className="text-zinc-400 text-[11px] truncate">https://www.nexa.ai/docs/intro</span>
               </div>
               <p className="text-[11px] text-zinc-400 mt-2">
@@ -750,7 +840,7 @@ function MockupChat({ isPlaying }: { isPlaying: boolean }) {
           Ask Nexa anything...
         </div>
         <div className="h-6 w-6 rounded-lg bg-white/10 flex items-center justify-center text-zinc-400">
-          ▲
+          Send
         </div>
       </div>
     </div>
@@ -761,10 +851,10 @@ function MockupChat({ isPlaying }: { isPlaying: boolean }) {
 function MockupBrowser({ isPlaying }: { isPlaying: boolean }) {
   const [scannedItems, setScannedItems] = useState<string[]>([]);
   const summaryPoints = [
-    "✅ Article: Launching a startup in 2026",
-    "📌 Goal: Explores AI integration and margins",
-    "💡 Summary: Replaces legacy chatbots with agents",
-    "⚡ Action: Export proposal template"
+    "Article: Launching a startup in 2026",
+    "Goal: Explores AI integration and margins",
+    "Summary: Replaces legacy chatbots with agents",
+    "Action: Export proposal template"
   ];
 
   useEffect(() => {
@@ -881,7 +971,7 @@ function MockupUseCases({ isPlaying }: { isPlaying: boolean }) {
               The powerhouses of the cell. Generates adenosine triphosphate (ATP) from chemical energy.
             </p>
             <div className="rounded-lg bg-zinc-950 p-2 text-[9px] text-zinc-500 border border-white/5">
-              🧠 Flashcard generated: Mitochondria = ATP Generator.
+              Flashcard generated: Mitochondria = ATP Generator.
             </div>
           </div>
         )}
@@ -897,7 +987,7 @@ function MockupUseCases({ isPlaying }: { isPlaying: boolean }) {
               <span className="text-emerald-400">+ data.map(item =&gt; processItem(item))</span>
               <span className="text-zinc-600">| Refactored clean map</span>
             </div>
-            <p className="text-indigo-400 mt-2 font-sans text-xs">💬 Nexa: Optimized code array mapping.</p>
+            <p className="text-indigo-400 mt-2 font-sans text-xs">Nexa: Optimized code array mapping.</p>
           </div>
         )}
 
@@ -905,7 +995,7 @@ function MockupUseCases({ isPlaying }: { isPlaying: boolean }) {
           <div className="space-y-2 animate-[fadeUp_0.3s_ease-out]">
             <h4 className="font-semibold text-zinc-200">Ad Copy Generator</h4>
             <div className="rounded-lg bg-zinc-950 p-2.5 border border-white/5 text-[11px] leading-relaxed text-zinc-400">
-              "Say goodbye to chat tabs. Meet Nexa — the AI that remembers what you actually do. Try free."
+              "Say goodbye to chat tabs. Meet Nexa - the AI that remembers what you actually do. Try free."
             </div>
             <p className="text-[9px] text-zinc-600">Suggested Tone: Confident, Startup-style</p>
           </div>
@@ -918,7 +1008,7 @@ function MockupUseCases({ isPlaying }: { isPlaying: boolean }) {
               Section 1.4: Implementation Timelines. Integration of Nexa developer API will reduce internal ticket response delay by 45%.
             </p>
             <div className="w-full bg-zinc-950 p-2 rounded-lg text-[9px] text-zinc-500 border border-white/5 flex justify-between items-center">
-              <span>📋 Draft: API Integrations v1.docx</span>
+              <span>Draft: API Integrations v1.docx</span>
               <span className="text-indigo-400 text-xs">Syncing...</span>
             </div>
           </div>
@@ -936,10 +1026,10 @@ function MockupUseCases({ isPlaying }: { isPlaying: boolean }) {
 function MockupPersonalization({ isPlaying }: { isPlaying: boolean }) {
   const [profileIndex, setProfileIndex] = useState(88);
   const [tags, setTags] = useState([
-    { id: 1, text: "🧑‍💻 Developer", active: true },
-    { id: 2, text: "🐍 Prefers Python", active: true },
-    { id: 3, text: "✍️ Concise Style", active: true },
-    { id: 4, text: "📁 Nexa-Web repo", active: true }
+    { id: 1, text: "Developer", active: true },
+    { id: 2, text: "Prefers Python", active: true },
+    { id: 3, text: "Concise Style", active: true },
+    { id: 4, text: "Nexa-Web repo", active: true }
   ]);
 
   useEffect(() => {
@@ -1114,7 +1204,7 @@ function MockupClosing({ isPlaying }: { isPlaying: boolean }) {
 
         {success ? (
           <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-emerald-400 font-medium text-[10px] animate-[scaleIn_0.3s_ease-out]">
-            🎉 You have been registered! Check your email for updates.
+            You have been registered. Check your email for updates.
           </div>
         ) : (
           <form
