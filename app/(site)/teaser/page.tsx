@@ -169,7 +169,6 @@ export default function TeaserPage() {
   const [viewMode, setViewMode] = useState<"cinematic" | "storyboard">("cinematic");
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
-  const [speakingParagraphIndex, setSpeakingParagraphIndex] = useState(0);
   const [selectedVoiceSampleId, setSelectedVoiceSampleId] = useState(VOICE_SAMPLES[0].id);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -192,14 +191,12 @@ export default function TeaserPage() {
 
     audio.currentTime = 0;
     setSceneProgress(0);
-    setSpeakingParagraphIndex(0);
     void audio.play().catch(() => setIsPlaying(false));
   }, [activeSceneIndex, isPlaying, playbackSpeed, selectedVoiceSampleId, viewMode]);
 
   const handleNextScene = () => {
     setActiveSceneIndex((prev) => {
       if (prev < SCENES.length - 1) {
-        setSpeakingParagraphIndex(0);
         return prev + 1;
       } else {
         setIsPlaying(false);
@@ -211,7 +208,6 @@ export default function TeaserPage() {
   const handlePrevScene = () => {
     setActiveSceneIndex((prev) => {
       if (prev > 0) {
-        setSpeakingParagraphIndex(0);
         return prev - 1;
       }
       return prev;
@@ -229,10 +225,7 @@ export default function TeaserPage() {
     if (!duration) return;
 
     const progress = Math.min(100, (audio.currentTime / duration) * 100);
-    const lineCount = activeScene.voiceover.length;
-    const nextIndex = Math.min(lineCount - 1, Math.floor((progress / 100) * lineCount));
     setSceneProgress(progress);
-    setSpeakingParagraphIndex(nextIndex);
   };
 
   const handleAudioEnded = () => {
@@ -454,43 +447,13 @@ export default function TeaserPage() {
               </div>
 
               {/* Script Text Box */}
-              <div className="flex-1 flex flex-col rounded-3xl border border-white/10 bg-zinc-900/20 p-6 backdrop-blur-md relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-zinc-950/20 pointer-events-none" />
-
-                <h3 className="text-sm font-bold text-zinc-400 uppercase tracking-wider">
-                  Script Voiceover / Subtitles
+              <div className="rounded-3xl border border-white/10 bg-zinc-900/20 p-6 backdrop-blur-md">
+                <h3 className="text-[11px] font-bold uppercase tracking-wider text-zinc-500">
+                  Visual direction
                 </h3>
-
-                <div className="mt-4 flex-1 flex flex-col gap-4 overflow-y-auto pr-1">
-                  {activeScene.voiceover.map((p, idx) => {
-                    const isCurrent = idx === speakingParagraphIndex && isPlaying;
-                    return (
-                      <p
-                        key={idx}
-                        className={`text-base leading-relaxed transition-all duration-300 ${
-                          isCurrent
-                            ? "text-indigo-400 font-medium scale-[1.01] translate-x-1"
-                            : isPlaying
-                            ? "text-zinc-600 opacity-60"
-                            : "text-zinc-300"
-                        }`}
-                      >
-                        {isCurrent && <span className="inline-block mr-1">Live:</span>}
-                        {p}
-                      </p>
-                    );
-                  })}
-                </div>
-
-                {/* Director visual cue */}
-                <div className="mt-6 border-t border-white/5 pt-4">
-                  <h4 className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">
-                    Director Visual Note
-                  </h4>
-                  <p className="mt-1 text-xs leading-relaxed text-zinc-400 italic">
-                    {activeScene.visualDescription}
-                  </p>
-                </div>
+                <p className="mt-2 text-sm leading-relaxed text-zinc-300">
+                  {activeScene.visualDescription}
+                </p>
               </div>
             </div>
           </div>
