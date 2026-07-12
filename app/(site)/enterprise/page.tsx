@@ -1,7 +1,17 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import PageHero from "../../../components/marketing/PageHero";
 import Section from "../../../components/marketing/Section";
 import { ENTERPRISE_FEATURES } from "../../../lib/site-content";
+
+export const metadata: Metadata = {
+  title: "Enterprise",
+  description:
+    "Nexa AI Enterprise provides private deployments, custom models, team controls, security, and support for organizations.",
+  alternates: {
+    canonical: "/enterprise",
+  },
+};
 
 export default function EnterprisePage() {
   return (

@@ -1,6 +1,16 @@
+import type { Metadata } from "next";
 import PageHero from "../../../components/marketing/PageHero";
 import PricingCards from "../../../components/marketing/PricingCards";
 import Section from "../../../components/marketing/Section";
+
+export const metadata: Metadata = {
+  title: "Pricing",
+  description:
+    "Compare Nexa AI plans for chat, memory, image generation, model access, team seats, and enterprise support.",
+  alternates: {
+    canonical: "/pricing",
+  },
+};
 
 export default function PricingPage() {
   return (

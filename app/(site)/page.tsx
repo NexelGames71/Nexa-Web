@@ -1,8 +1,18 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import PageHero from "../../components/marketing/PageHero";
 import PricingCards from "../../components/marketing/PricingCards";
 import Section from "../../components/marketing/Section";
 import { HERO, HOME_FEATURES, MODELS, TESTIMONIALS } from "../../lib/site-content";
+
+export const metadata: Metadata = {
+  title: "Intelligent AI Assistant and Browser",
+  description:
+    "Nexa AI combines chat, memory, research, productivity tools, automation, and browser assistance in one intelligent AI workspace.",
+  alternates: {
+    canonical: "/",
+  },
+};
 
 export default function HomePage() {
   return (

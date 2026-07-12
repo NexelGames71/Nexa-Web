@@ -1,6 +1,16 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import PageHero from "../../../components/marketing/PageHero";
 import Section from "../../../components/marketing/Section";
+
+export const metadata: Metadata = {
+  title: "AI Browser",
+  description:
+    "Preview Nexa Browser, an AI-powered browser experience with summaries, tab-aware chat, smart navigation, and web assistance.",
+  alternates: {
+    canonical: "/browser",
+  },
+};
 
 const BROWSER_SECTIONS = [
   { title: "Features", body: "AI summaries, tab-aware chat, and smart navigation." },

@@ -1,7 +1,17 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import PageHero from "../../../components/marketing/PageHero";
 import Section from "../../../components/marketing/Section";
 import { API_SECTIONS } from "../../../lib/site-content";
+
+export const metadata: Metadata = {
+  title: "API",
+  description:
+    "Use the Nexa API to add AI chat, model access, memory, and streaming assistant workflows to your products.",
+  alternates: {
+    canonical: "/api",
+  },
+};
 
 export default function ApiPage() {
   return (

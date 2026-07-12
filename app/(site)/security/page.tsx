@@ -1,6 +1,16 @@
+import type { Metadata } from "next";
 import PageHero from "../../../components/marketing/PageHero";
 import Section from "../../../components/marketing/Section";
 import { SECURITY_SECTIONS } from "../../../lib/site-content";
+
+export const metadata: Metadata = {
+  title: "Security",
+  description:
+    "Review Nexa AI security practices for privacy, encryption, responsible data handling, and enterprise-grade assistant workflows.",
+  alternates: {
+    canonical: "/security",
+  },
+};
 
 export default function SecurityPage() {
   return (

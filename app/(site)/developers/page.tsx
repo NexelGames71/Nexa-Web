@@ -1,5 +1,15 @@
+import type { Metadata } from "next";
 import PageHero from "../../../components/marketing/PageHero";
 import Section from "../../../components/marketing/Section";
+
+export const metadata: Metadata = {
+  title: "Developers",
+  description:
+    "Build with Nexa AI using developer documentation, API keys, examples, SDKs, streaming chat, and memory integrations.",
+  alternates: {
+    canonical: "/developers",
+  },
+};
 
 const DEV_SECTIONS = [
   { title: "Documentation", body: "Guides for authentication, chat completions, memory, and streaming." },

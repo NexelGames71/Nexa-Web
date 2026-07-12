@@ -1,6 +1,16 @@
+import type { Metadata } from "next";
 import PageHero from "../../../components/marketing/PageHero";
 import Section from "../../../components/marketing/Section";
 import { BRAND } from "../../../lib/site-content";
+
+export const metadata: Metadata = {
+  title: "About",
+  description:
+    "Learn about Nexa Labs and the mission behind Nexa AI, an assistant and AI browser platform for productivity and intelligent web assistance.",
+  alternates: {
+    canonical: "/about",
+  },
+};
 
 export default function AboutPage() {
   return (

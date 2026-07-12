@@ -1,5 +1,15 @@
+import type { Metadata } from "next";
 import PageHero from "../../../components/marketing/PageHero";
 import Section from "../../../components/marketing/Section";
+
+export const metadata: Metadata = {
+  title: "Contact",
+  description:
+    "Contact the Nexa team for sales, support, partnerships, enterprise AI assistant deployments, and AI browser questions.",
+  alternates: {
+    canonical: "/contact",
+  },
+};
 
 export default function ContactPage() {
   return (

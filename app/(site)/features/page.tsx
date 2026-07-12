@@ -1,7 +1,17 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import PageHero from "../../../components/marketing/PageHero";
 import Section from "../../../components/marketing/Section";
 import { PLATFORM_FEATURES } from "../../../lib/site-content";
+
+export const metadata: Metadata = {
+  title: "Features",
+  description:
+    "Explore Nexa AI features for chat, browser assistance, voice, memory, search, agents, image tools, and developer APIs.",
+  alternates: {
+    canonical: "/features",
+  },
+};
 
 export default function FeaturesPage() {
   return (

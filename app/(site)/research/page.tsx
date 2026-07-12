@@ -1,5 +1,15 @@
+import type { Metadata } from "next";
 import PageHero from "../../../components/marketing/PageHero";
 import Section from "../../../components/marketing/Section";
+
+export const metadata: Metadata = {
+  title: "Research",
+  description:
+    "Read Nexa AI research updates, model releases, benchmarks, and lab notes for AI assistant and browser intelligence work.",
+  alternates: {
+    canonical: "/research",
+  },
+};
 
 const RESEARCH_ITEMS = [
   { title: "Model releases", body: "Release notes for Fast, Think, and Deep Think." },

@@ -2,9 +2,36 @@ import "./globals.css";
 import Providers from "./providers";
 
 export const metadata = {
-  title: "Nexa AI — Chat, Memory, Agents & API",
+  metadataBase: new URL("https://trynexa-ai.com"),
+  title: {
+    default: "Nexa AI - Intelligent AI Assistant and Browser",
+    template: "%s | Nexa AI",
+  },
   description:
-    "Nexa AI platform: ChatGPT-style chat, memory, search, custom assistants, developer API, and enterprise options.",
+    "Nexa AI is an intelligent assistant and AI-powered browser built for conversations, research, productivity, automation, and web assistance.",
+  keywords: [
+    "Nexa AI",
+    "AI assistant",
+    "AI browser",
+    "artificial intelligence",
+    "AI chatbot",
+    "browser automation",
+  ],
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    title: "Nexa AI - Intelligent AI Assistant and Browser",
+    description:
+      "Use Nexa AI for conversations, research, productivity, automation, and intelligent browsing.",
+    url: "https://trynexa-ai.com",
+    siteName: "Nexa AI",
+    type: "website",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
   icons: {
     icon: [
       { url: "/favicon.ico?v=2", sizes: "any" },
