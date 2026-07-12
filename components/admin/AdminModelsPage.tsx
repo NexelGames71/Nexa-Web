@@ -123,8 +123,8 @@ export default function AdminModelsPage() {
       setModels(items);
       setMeta(nextMeta);
       setSelectedModel((current) => {
-        if (!current) return items[0] || null;
-        return items.find((item: ModelRecord) => item.id === current.id) || items[0] || null;
+        if (!current) return null;
+        return items.find((item: ModelRecord) => item.id === current.id) || null;
       });
     } catch (loadError: any) {
       setError(loadError?.message || "Failed to load model registry.");
