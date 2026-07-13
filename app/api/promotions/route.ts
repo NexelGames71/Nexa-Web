@@ -36,15 +36,21 @@ function parseCampaignDate(value: unknown) {
   return Number.isNaN(parsed) ? 0 : parsed;
 }
 
-function isVisibleNow(promotion: any, now = Date.now()) {
-  if (String(promotion.status || "").trim().toUpperCase() !== "ACTIVE") return false;
-  if (!truthy(promotion.publicCampaign)) return false;
+function visibilityFor(promotion: any, now = Date.now()) {
+  const reasons: string[] = [];
+  if (String(promotion.status || "").trim().toUpperCase() !== "ACTIVE") reasons.push("status_not_active");
+  if (!truthy(promotion.publicCampaign)) reasons.push("not_public");
 
   const startsAt = parseCampaignDate(promotion.startsAt);
   const endsAt = parseCampaignDate(promotion.endsAt);
-  if (startsAt && startsAt > now) return false;
-  if (endsAt && endsAt < now) return false;
-  return true;
+  if (startsAt && startsAt > now) reasons.push("not_started");
+  if (endsAt && endsAt < now) reasons.push("expired");
+
+  return { visible: reasons.length === 0, reasons, startsAt, endsAt };
+}
+
+function isVisibleNow(promotion: any, now = Date.now()) {
+  return visibilityFor(promotion, now).visible;
 }
 
 function publicPromotionFromDocument(document: any, rewards: any[] = []) {
@@ -67,8 +73,9 @@ function publicPromotionFromDocument(document: any, rewards: any[] = []) {
   };
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const debug = new URL(request.url).searchParams.get("debug") === "1";
     const databases = createAdminDatabases();
     const records = await databases.listDocuments(databaseId, promotionsCollectionId, [
       Query.orderDesc("updatedAt"),
@@ -76,7 +83,7 @@ export async function GET() {
     ]);
 
     const visible = (records.documents || [])
-      .filter(isVisibleNow)
+      .filter((promotion: any) => isVisibleNow(promotion))
       .sort((left: any, right: any) => Number(right.priority || 0) - Number(left.priority || 0))
       .slice(0, 6);
 
@@ -96,11 +103,66 @@ export async function GET() {
       }),
     );
 
-    return Response.json({ promotions });
+    return Response.json(
+      {
+        promotions,
+        meta: {
+          totalCampaigns: records.total || records.documents?.length || 0,
+          visibleCampaigns: visible.length,
+          generatedAt: new Date().toISOString(),
+          ...(debug
+            ? {
+                diagnostics: (records.documents || []).map((promotion: any) => ({
+                  id: promotion.promotionId || promotion.$id,
+                  status: promotion.status,
+                  publicCampaign: promotion.publicCampaign,
+                  startsAt: promotion.startsAt,
+                  endsAt: promotion.endsAt,
+                  visibility: visibilityFor(promotion),
+                })),
+              }
+            : {}),
+        },
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+        },
+      },
+    );
   } catch (error: any) {
     if (isMissingCollection(error)) {
-      return Response.json({ promotions: [] });
+      return Response.json(
+        {
+          promotions: [],
+          meta: {
+            totalCampaigns: 0,
+            visibleCampaigns: 0,
+            generatedAt: new Date().toISOString(),
+            warning: "Promotion collections are not configured for this environment.",
+          },
+        },
+        {
+          headers: {
+            "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+            Pragma: "no-cache",
+            Expires: "0",
+          },
+        },
+      );
     }
-    return Response.json({ error: error?.message || "Failed to load promotions." }, { status: 500 });
+    return Response.json(
+      { error: error?.message || "Failed to load promotions." },
+      {
+        status: 500,
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+        },
+      },
+    );
   }
 }

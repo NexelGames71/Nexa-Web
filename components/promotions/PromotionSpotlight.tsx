@@ -64,7 +64,7 @@ export default function PromotionSpotlight({
 
     async function loadPromotions() {
       try {
-        const response = await fetch("/api/promotions", { cache: "no-store" });
+        const response = await fetch(`/api/promotions?t=${Date.now()}`, { cache: "no-store" });
         const data = await response.json();
         if (!cancelled && response.ok) {
           setPromotions(Array.isArray(data.promotions) ? data.promotions : []);
