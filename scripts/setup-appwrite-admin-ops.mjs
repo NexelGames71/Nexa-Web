@@ -48,6 +48,38 @@ const collectionIds = {
     process.env.APPWRITE_SUPPORT_NOTES_COLLECTION_ID || defaultCollectionId("support", "notes"),
   adminAuditLogs:
     process.env.APPWRITE_ADMIN_AUDIT_LOGS_COLLECTION_ID || defaultCollectionId("admin", "audit", "logs"),
+  promotions: process.env.APPWRITE_PROMOTIONS_COLLECTION_ID || defaultCollectionId("promotions"),
+  promotionRewards:
+    process.env.APPWRITE_PROMOTION_REWARDS_COLLECTION_ID || defaultCollectionId("promotion", "rewards"),
+  promotionEligibilityRules:
+    process.env.APPWRITE_PROMOTION_ELIGIBILITY_RULES_COLLECTION_ID ||
+    defaultCollectionId("promotion", "eligibility", "rules"),
+  promotionLimits:
+    process.env.APPWRITE_PROMOTION_LIMITS_COLLECTION_ID || defaultCollectionId("promotion", "limits"),
+  promotionSchedules:
+    process.env.APPWRITE_PROMOTION_SCHEDULES_COLLECTION_ID || defaultCollectionId("promotion", "schedules"),
+  promotionCodes:
+    process.env.APPWRITE_PROMOTION_CODES_COLLECTION_ID || defaultCollectionId("promotion", "codes"),
+  promotionAssignments:
+    process.env.APPWRITE_PROMOTION_ASSIGNMENTS_COLLECTION_ID ||
+    defaultCollectionId("promotion", "assignments"),
+  promotionRedemptions:
+    process.env.APPWRITE_PROMOTION_REDEMPTIONS_COLLECTION_ID ||
+    defaultCollectionId("promotion", "redemptions"),
+  promotionUsageEvents:
+    process.env.APPWRITE_PROMOTION_USAGE_EVENTS_COLLECTION_ID ||
+    defaultCollectionId("promotion", "usage", "events"),
+  promotionAuditLogs:
+    process.env.APPWRITE_PROMOTION_AUDIT_LOGS_COLLECTION_ID ||
+    defaultCollectionId("promotion", "audit", "logs"),
+  promotionExperiments:
+    process.env.APPWRITE_PROMOTION_EXPERIMENTS_COLLECTION_ID ||
+    defaultCollectionId("promotion", "experiments"),
+  referralCampaigns:
+    process.env.APPWRITE_REFERRAL_CAMPAIGNS_COLLECTION_ID || defaultCollectionId("referral", "campaigns"),
+  referralRelationships:
+    process.env.APPWRITE_REFERRAL_RELATIONSHIPS_COLLECTION_ID ||
+    defaultCollectionId("referral", "relationships"),
 };
 
 const collections = [
@@ -242,6 +274,256 @@ const collections = [
       key("logId_unique", "unique", ["logId"]),
       key("admin_createdAt", "key", ["adminId", "createdAt"]),
       key("target_createdAt", "key", ["targetType", "createdAt"]),
+    ],
+  },
+  {
+    id: collectionIds.promotions,
+    name: "Promotions",
+    attributes: [
+      varchar("promotionId", 80, true),
+      varchar("name", 180, true),
+      varchar("title", 180, true),
+      varchar("description", 1000, false),
+      varchar("category", 80, false),
+      varchar("promotionType", 100, true),
+      varchar("applicationMode", 40, true),
+      varchar("status", 32, true),
+      varchar("code", 120, false),
+      varchar("normalizedCode", 120, false),
+      bool("publicCampaign", true),
+      integer("priority", false),
+      varchar("stackingPolicy", 80, false),
+      varchar("startsAt", 64, false),
+      varchar("endsAt", 64, false),
+      varchar("timezone", 80, false),
+      integer("totalRedemptionLimit", false),
+      integer("perUserLimit", false),
+      float("budgetLimit", false),
+      integer("redemptionCount", false),
+      integer("uniqueUsersReached", false),
+      float("revenueGenerated", false),
+      float("discountValueGranted", false),
+      integer("creditsGranted", false),
+      float("conversionRate", false),
+      float("promotionCost", false),
+      integer("rejectedAttempts", false),
+      varchar("createdBy", 80, false),
+      varchar("createdAt", 64, true),
+      varchar("updatedAt", 64, true),
+    ],
+    indexes: [
+      key("promotionId_unique", "unique", ["promotionId"]),
+      key("status_updatedAt", "key", ["status", "updatedAt"]),
+      key("normalizedCode", "key", ["normalizedCode"]),
+      key("type_status", "key", ["promotionType", "status"]),
+    ],
+  },
+  {
+    id: collectionIds.promotionRewards,
+    name: "Promotion Rewards",
+    attributes: [
+      varchar("promotionId", 80, true),
+      varchar("rewardType", 100, true),
+      varchar("value", 500, false),
+      varchar("config", 2000, false),
+      varchar("createdAt", 64, true),
+      varchar("updatedAt", 64, true),
+    ],
+    indexes: [
+      key("promotion_reward", "key", ["promotionId", "rewardType"]),
+    ],
+  },
+  {
+    id: collectionIds.promotionEligibilityRules,
+    name: "Promotion Eligibility Rules",
+    attributes: [
+      varchar("promotionId", 80, true),
+      varchar("ruleType", 100, true),
+      varchar("operator", 80, true),
+      varchar("value", 1000, false),
+      varchar("config", 2000, false),
+      varchar("createdAt", 64, true),
+      varchar("updatedAt", 64, true),
+    ],
+    indexes: [
+      key("promotion_rule", "key", ["promotionId", "ruleType"]),
+    ],
+  },
+  {
+    id: collectionIds.promotionLimits,
+    name: "Promotion Limits",
+    attributes: [
+      varchar("promotionId", 80, true),
+      varchar("limitType", 100, true),
+      integer("value", false),
+      varchar("config", 2000, false),
+      varchar("createdAt", 64, true),
+      varchar("updatedAt", 64, true),
+    ],
+    indexes: [
+      key("promotion_limit", "key", ["promotionId", "limitType"]),
+    ],
+  },
+  {
+    id: collectionIds.promotionSchedules,
+    name: "Promotion Schedules",
+    attributes: [
+      varchar("promotionId", 80, true),
+      varchar("startsAt", 64, false),
+      varchar("endsAt", 64, false),
+      varchar("timezone", 80, false),
+      varchar("config", 2000, false),
+      varchar("createdAt", 64, true),
+      varchar("updatedAt", 64, true),
+    ],
+    indexes: [
+      key("promotion_schedule", "key", ["promotionId", "startsAt"]),
+    ],
+  },
+  {
+    id: collectionIds.promotionCodes,
+    name: "Promotion Codes",
+    attributes: [
+      varchar("promotionId", 80, true),
+      varchar("code", 120, true),
+      varchar("normalizedCode", 120, true),
+      varchar("status", 32, true),
+      varchar("createdAt", 64, true),
+      varchar("updatedAt", 64, true),
+    ],
+    indexes: [
+      key("normalizedCode_status", "key", ["normalizedCode", "status"]),
+      key("promotion_code", "key", ["promotionId", "normalizedCode"]),
+    ],
+  },
+  {
+    id: collectionIds.promotionAssignments,
+    name: "Promotion Assignments",
+    attributes: [
+      varchar("promotionId", 80, true),
+      varchar("userId", 80, true),
+      varchar("organizationId", 80, false),
+      varchar("status", 32, true),
+      varchar("assignedBy", 80, false),
+      varchar("expiresAt", 64, false),
+      varchar("createdAt", 64, true),
+      varchar("updatedAt", 64, true),
+    ],
+    indexes: [
+      key("user_status", "key", ["userId", "status"]),
+      key("promotion_status", "key", ["promotionId", "status"]),
+    ],
+  },
+  {
+    id: collectionIds.promotionRedemptions,
+    name: "Promotion Redemptions",
+    attributes: [
+      varchar("promotionId", 80, true),
+      varchar("userId", 80, true),
+      varchar("organizationId", 80, false),
+      varchar("code", 120, false),
+      varchar("status", 40, true),
+      float("discountValue", false),
+      integer("creditsGranted", false),
+      integer("riskScore", false),
+      varchar("rejectionReason", 1000, false),
+      varchar("metadata", 4000, false),
+      varchar("createdAt", 64, true),
+    ],
+    indexes: [
+      key("promotion_createdAt", "key", ["promotionId", "createdAt"]),
+      key("user_createdAt", "key", ["userId", "createdAt"]),
+      key("status_createdAt", "key", ["status", "createdAt"]),
+    ],
+  },
+  {
+    id: collectionIds.promotionUsageEvents,
+    name: "Promotion Usage Events",
+    attributes: [
+      varchar("promotionId", 80, true),
+      varchar("userId", 80, false),
+      varchar("eventType", 100, true),
+      integer("inputTokens", false),
+      integer("outputTokens", false),
+      integer("creditsUsed", false),
+      float("costEstimate", false),
+      varchar("metadata", 4000, false),
+      varchar("createdAt", 64, true),
+    ],
+    indexes: [
+      key("promotion_event", "key", ["promotionId", "eventType"]),
+      key("event_createdAt", "key", ["eventType", "createdAt"]),
+    ],
+  },
+  {
+    id: collectionIds.promotionAuditLogs,
+    name: "Promotion Audit Logs",
+    attributes: [
+      varchar("promotionId", 80, true),
+      varchar("action", 120, true),
+      varchar("actorUserId", 80, false),
+      integer("riskScore", false),
+      varchar("rejectionReason", 1000, false),
+      varchar("metadata", 4000, false),
+      varchar("createdAt", 64, true),
+    ],
+    indexes: [
+      key("promotion_createdAt", "key", ["promotionId", "createdAt"]),
+      key("action_createdAt", "key", ["action", "createdAt"]),
+    ],
+  },
+  {
+    id: collectionIds.promotionExperiments,
+    name: "Promotion Experiments",
+    attributes: [
+      varchar("promotionId", 80, true),
+      varchar("experimentId", 80, true),
+      varchar("variant", 80, true),
+      varchar("status", 32, true),
+      varchar("metrics", 4000, false),
+      varchar("createdAt", 64, true),
+      varchar("updatedAt", 64, true),
+    ],
+    indexes: [
+      key("experiment_variant", "key", ["experimentId", "variant"]),
+      key("promotion_status", "key", ["promotionId", "status"]),
+    ],
+  },
+  {
+    id: collectionIds.referralCampaigns,
+    name: "Referral Campaigns",
+    attributes: [
+      varchar("campaignId", 80, true),
+      varchar("promotionId", 80, false),
+      varchar("name", 180, true),
+      varchar("status", 32, true),
+      varchar("rewardConfig", 4000, false),
+      varchar("createdAt", 64, true),
+      varchar("updatedAt", 64, true),
+    ],
+    indexes: [
+      key("campaignId_unique", "unique", ["campaignId"]),
+      key("status_updatedAt", "key", ["status", "updatedAt"]),
+    ],
+  },
+  {
+    id: collectionIds.referralRelationships,
+    name: "Referral Relationships",
+    attributes: [
+      varchar("campaignId", 80, true),
+      varchar("referrerUserId", 80, true),
+      varchar("referredUserId", 80, true),
+      varchar("status", 32, true),
+      varchar("rewardStatus", 32, false),
+      integer("riskScore", false),
+      varchar("rejectionReason", 1000, false),
+      varchar("createdAt", 64, true),
+      varchar("updatedAt", 64, true),
+    ],
+    indexes: [
+      key("referrer_status", "key", ["referrerUserId", "status"]),
+      key("referred_status", "key", ["referredUserId", "status"]),
+      key("campaign_status", "key", ["campaignId", "status"]),
     ],
   },
 ];

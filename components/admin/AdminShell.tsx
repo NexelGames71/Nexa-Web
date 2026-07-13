@@ -12,6 +12,7 @@ export const ADMIN_NAV = [
   { href: "/admin/models", label: "Models", icon: "models" },
   { href: "/admin/analytics", label: "Analytics", icon: "analytics" },
   { href: "/admin/billing", label: "Billing", icon: "billing" },
+  { href: "/admin/promotions", label: "Promotions", icon: "promotions" },
   { href: "/admin/support", label: "Support", icon: "support" },
   { href: "/admin/training", label: "Training", icon: "training" },
 ];
@@ -41,6 +42,8 @@ function NavIcon({ name }: { name?: string }) {
       return <path {...common} d="M5 19V9m7 10V5m7 14v-7M4 19h16" />;
     case "billing":
       return <path {...common} d="M4 7.5A2.5 2.5 0 0 1 6.5 5h11A2.5 2.5 0 0 1 20 7.5v9A2.5 2.5 0 0 1 17.5 19h-11A2.5 2.5 0 0 1 4 16.5v-9Zm0 2.5h16M8 15h4" />;
+    case "promotions":
+      return <path {...common} d="M4 12.5 11.5 5H19v7.5L11.5 20 4 12.5Zm11-4.5h.01M7.5 12.5l4 4" />;
     case "support":
       return <path {...common} d="M12 20a8 8 0 1 0-8-8v5l1.8-1.1A8 8 0 0 0 12 20Zm-2.5-9a2.5 2.5 0 0 1 5 0c0 2-2.5 2-2.5 4m0 2h.01" />;
     case "training":
