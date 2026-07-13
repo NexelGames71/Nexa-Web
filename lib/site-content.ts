@@ -234,28 +234,28 @@ export const PRICING_PLANS = [
 
 export const MODELS = [
   {
-    id: "fast",
-    name: "Nexa Fast",
-    description: "Low-latency responses for everyday chat and quick tasks.",
-    status: "Available",
+    id: "ember-0-5",
+    name: "Ember 0.5",
+    description: "Nexa's first official text/chat model for streaming conversations, everyday assistance, early reasoning, and browser-aware workflows.",
+    status: "Text model",
   },
   {
-    id: "think",
-    name: "Nexa Think",
-    description: "Balanced reasoning for writing, analysis, and coding.",
-    status: "Available",
+    id: "prism-0-5",
+    name: "Prism 0.5",
+    description: "Nexa's first-generation image model for visual creation, concept art, image ideation, and creative workflows.",
+    status: "Image model",
   },
   {
-    id: "deep",
-    name: "Nexa Deep Think",
-    description: "Extended reasoning for complex multi-step problems.",
-    status: "Available",
+    id: "ember-1-0",
+    name: "Ember 1.0",
+    description: "The next planned Ember release focused on stronger reasoning, lower latency, and better browser assistance.",
+    status: "Roadmap",
   },
   {
-    id: "future",
-    name: "Future Models",
-    description: "Research previews and upcoming releases from the Nexa lab.",
-    status: "Research",
+    id: "prism-next",
+    name: "Prism Next",
+    description: "Planned visual model improvements for sharper prompt following, higher fidelity, and richer creative control.",
+    status: "Roadmap",
   },
 ];
 
