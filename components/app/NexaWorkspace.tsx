@@ -20,6 +20,7 @@ import { isChatPinned, sortWithPinnedFirst, togglePinnedChat } from "../../lib/p
 import { BILLING_PLANS, getPlanLimitHighlights } from "../../lib/billing-plans";
 import { formatLimitValue } from "../../lib/plan-limits";
 import { RESPONSE_LENGTH_OPTIONS, THINKING_MODES } from "../../lib/thinking-modes";
+import PromotionSpotlight from "../promotions/PromotionSpotlight";
 
 const thinkingIcon = { src: "/thinking.png" };
 const settingsIcon = { src: "/settings.png" };
@@ -2511,6 +2512,12 @@ export default function NexaWorkspace({
             </button>
           </div>
         </div>
+
+        {sidebarOpen && currentUser ? (
+          <div className="px-2 pt-2">
+            <PromotionSpotlight surface="workspace" planKey="plus" compact />
+          </div>
+        ) : null}
 
         {sidebarOpen ? (
           <>

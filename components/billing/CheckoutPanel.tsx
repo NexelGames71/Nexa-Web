@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 
 import { account, createSessionJwt } from "../../lib/appwrite";
 import { BILLING_PLANS, getBillingPlan, getPlanLimitHighlights } from "../../lib/billing-plans";
+import PromotionSpotlight from "../promotions/PromotionSpotlight";
 import PayPalSubscribeButton from "./PayPalSubscribeButton";
 
 type CheckoutPanelProps = {
@@ -91,6 +92,8 @@ export default function CheckoutPanel({ planKey }: CheckoutPanelProps) {
             </li>
           ))}
         </ul>
+
+        <PromotionSpotlight surface="checkout" planKey={plan.id} className="mt-8" />
 
         <div className="mt-8 flex flex-wrap gap-3 text-sm">
           {paidPlans.map((candidate) => {
