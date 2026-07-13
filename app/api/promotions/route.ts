@@ -22,12 +22,26 @@ function isMissingCollection(error: any) {
   return error instanceof AppwriteException && [400, 404].includes(Number(error.code));
 }
 
-function isVisibleNow(promotion: any, now = Date.now()) {
-  if (promotion.status !== "ACTIVE") return false;
-  if (!promotion.publicCampaign) return false;
+function truthy(value: unknown) {
+  if (value === true) return true;
+  const normalized = String(value || "").trim().toLowerCase();
+  return ["true", "1", "yes", "public"].includes(normalized);
+}
 
-  const startsAt = promotion.startsAt ? new Date(promotion.startsAt).getTime() : 0;
-  const endsAt = promotion.endsAt ? new Date(promotion.endsAt).getTime() : 0;
+function parseCampaignDate(value: unknown) {
+  const raw = String(value || "").trim();
+  if (!raw) return 0;
+  const normalized = /\dT\d{2}:\d{2}$/.test(raw) ? `${raw}:00` : raw;
+  const parsed = new Date(normalized).getTime();
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function isVisibleNow(promotion: any, now = Date.now()) {
+  if (String(promotion.status || "").trim().toUpperCase() !== "ACTIVE") return false;
+  if (!truthy(promotion.publicCampaign)) return false;
+
+  const startsAt = parseCampaignDate(promotion.startsAt);
+  const endsAt = parseCampaignDate(promotion.endsAt);
   if (startsAt && startsAt > now) return false;
   if (endsAt && endsAt < now) return false;
   return true;
@@ -57,9 +71,8 @@ export async function GET() {
   try {
     const databases = createAdminDatabases();
     const records = await databases.listDocuments(databaseId, promotionsCollectionId, [
-      Query.equal("status", "ACTIVE"),
       Query.orderDesc("updatedAt"),
-      Query.limit(25),
+      Query.limit(100),
     ]);
 
     const visible = (records.documents || [])
