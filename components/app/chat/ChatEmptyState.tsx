@@ -11,7 +11,7 @@ const SUGGESTIONS = [
 export default function ChatEmptyState({ assistantName, onSuggestionClick }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-4 pb-8 pt-6">
-      <h1 className="mb-8 text-center text-2xl font-medium text-ink md:text-[28px]">
+      <h1 className="mb-8 text-center text-2xl font-semibold leading-[1.33] text-ink">
         What can I help with?
       </h1>
       <div className="grid w-full max-w-2xl gap-2 sm:grid-cols-2">
@@ -20,7 +20,7 @@ export default function ChatEmptyState({ assistantName, onSuggestionClick }) {
             key={label}
             type="button"
             onClick={() => onSuggestionClick(label)}
-            className="rounded-xl border border-chat-border bg-chat-surface px-4 py-3 text-left text-sm text-ink transition hover:bg-chat-hover"
+            className="rounded-[10px] border border-chat-border bg-chat-surface px-4 py-3 text-left text-sm text-ink transition hover:bg-chat-hover"
           >
             {label}
           </button>

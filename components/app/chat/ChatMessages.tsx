@@ -24,14 +24,7 @@ const STRUCTURED_SECTION_LABELS = [
 ];
 
 function ThinkingDots({ tone = "thinking" }) {
-  const accentClass =
-    tone === "searching"
-      ? "bg-[#2d7dd2]"
-      : tone === "typing"
-        ? "bg-[#2aa876]"
-        : tone === "creating-image"
-          ? "bg-[#3ac4ff]"
-          : "bg-chat-muted";
+  const accentClass = tone === "typing" ? "bg-ink" : "bg-chat-muted";
 
   return (
     <div className="flex items-center gap-1 py-2">
@@ -48,7 +41,7 @@ function IconAsset({ icon, alt, className = "h-4 w-4" }) {
     return null;
   }
 
-  return <img src={src} alt={alt} className={`${className} invert`} draggable={false} />;
+  return <img src={src} alt={alt} className={`${className} opacity-80`} draggable={false} />;
 }
 
 function ImageGenerationPendingCard({ status }) {
@@ -73,17 +66,14 @@ function ImageGenerationPendingCard({ status }) {
         {chips.length ? (
           <div className="flex flex-wrap gap-2">
             {chips.map((chip) => (
-              <span
-                key={chip}
-                className="rounded-full border border-chat-border bg-black/[0.03] px-2.5 py-1 text-[11px] font-medium capitalize text-chat-muted"
-              >
+              <span key={chip} className="border border-chat-border bg-chat-sidebar px-2.5 py-1 text-[11px] font-medium capitalize text-chat-muted">
                 {chip}
               </span>
             ))}
           </div>
         ) : null}
       </div>
-      <div className="relative aspect-square overflow-hidden rounded-[1.5rem] border border-chat-border bg-[#2d2d30] shadow-[0_20px_50px_rgba(15,23,42,0.10)]">
+      <div className="relative aspect-square overflow-hidden rounded-[10px] border border-chat-border bg-chat-sidebar">
         <div
           className="absolute inset-0 opacity-60"
           style={{
@@ -99,14 +89,14 @@ function ImageGenerationPendingCard({ status }) {
           style={{ animation: "nexaImageSweep 2.8s ease-in-out infinite" }}
         />
         <div
-          className="absolute left-1/2 top-1/2 h-28 w-28 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/10 bg-cyan-300/10 blur-xl"
+          className="absolute left-1/2 top-1/2 h-28 w-28 -translate-x-1/2 -translate-y-1/2 rounded-full border border-black/10 bg-black/[0.03]"
           style={{ animation: "nexaImagePulse 2.2s ease-in-out infinite" }}
         />
         <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/18 to-transparent" />
-        <div className="absolute bottom-4 left-4 rounded-full bg-black/35 px-3 py-1.5 text-xs font-medium text-white/85">
+        <div className="absolute bottom-4 left-4 rounded-[10px] border border-chat-border bg-chat-surface px-3 py-1.5 text-xs font-medium text-ink">
           {status?.progress ? `${Math.min(99, Math.max(1, Math.round(status.progress)))}%` : "Generating"}
         </div>
-        <div className="absolute bottom-3 right-3 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-black/30">
+        <div className="absolute bottom-3 right-3 inline-flex h-10 w-10 items-center justify-center rounded-[10px] border border-chat-border bg-chat-surface">
           <ThinkingDots tone="creating-image" />
         </div>
         <style jsx>{`
@@ -304,7 +294,7 @@ function renderMarkdownImage(line, key) {
   return (
     <figure
       key={key}
-      className="group relative aspect-square w-full max-w-[480px] overflow-hidden rounded-[1.5rem] bg-[#202123] shadow-[0_18px_50px_rgba(15,23,42,0.14)]"
+      className="group relative aspect-square w-full max-w-[480px] overflow-hidden rounded-[10px] border border-chat-border bg-chat-sidebar"
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={src} alt={alt} className="h-full w-full object-cover" />
@@ -312,13 +302,13 @@ function renderMarkdownImage(line, key) {
       <button
         type="button"
         aria-label="Preview generated image"
-        className="absolute right-4 top-4 inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/35 text-sm text-white/90 opacity-90 ring-1 ring-white/15 transition hover:bg-black/50"
+        className="absolute right-4 top-4 inline-flex h-8 w-8 items-center justify-center rounded-[10px] border border-chat-border bg-chat-surface text-sm text-ink opacity-90 transition hover:bg-chat-hover"
       >
         <IconAsset icon={resizeIcon} alt="" />
       </button>
       <button
         type="button"
-        className="absolute bottom-4 left-4 inline-flex items-center gap-1.5 rounded-full bg-black/45 px-3 py-1.5 text-xs font-medium text-white/90 ring-1 ring-white/10 transition hover:bg-black/60"
+        className="absolute bottom-4 left-4 inline-flex items-center gap-1.5 rounded-[10px] border border-chat-border bg-chat-surface px-3 py-1.5 text-xs font-medium text-ink transition hover:bg-chat-hover"
       >
         <IconAsset icon={createIcon} alt="" className="h-3.5 w-3.5" />
         Edit
@@ -327,7 +317,7 @@ function renderMarkdownImage(line, key) {
         href={src}
         download
         aria-label="Download generated image"
-        className="absolute bottom-4 right-4 inline-flex h-9 w-9 items-center justify-center rounded-full bg-black/45 text-lg leading-none text-white/90 ring-1 ring-white/10 transition hover:bg-black/60"
+        className="absolute bottom-4 right-4 inline-flex h-9 w-9 items-center justify-center rounded-[10px] border border-chat-border bg-chat-surface text-lg leading-none text-ink transition hover:bg-chat-hover"
       >
         <IconAsset icon={downloadIcon} alt="" />
       </a>
@@ -433,7 +423,7 @@ function renderMarkdownTable(lines, key) {
   const rows = trimmed.slice(2).map(splitMarkdownRow);
 
   return (
-    <div key={key} className="my-2 overflow-x-auto rounded-2xl border border-chat-border bg-white/[0.02]">
+    <div key={key} className="my-2 overflow-x-auto rounded-[10px] border border-chat-border bg-chat-surface">
       <table className="min-w-full border-collapse text-left text-[14px] leading-6 text-ink">
         <thead className="bg-black/[0.04]">
           <tr>
@@ -513,7 +503,7 @@ function renderAssistantContent(content, options = {}) {
               {language}
             </div>
           ) : null}
-          <pre className="overflow-x-auto whitespace-pre-wrap break-words rounded-2xl border border-chat-border bg-black/[0.04] p-4 text-[14px] leading-6 text-ink">
+          <pre className="overflow-x-auto whitespace-pre-wrap break-words rounded-[10px] border border-chat-border bg-black/[0.04] p-4 text-[14px] leading-6 text-ink">
             <code className="font-mono break-words">{codeBody}</code>
           </pre>
         </section>
@@ -726,16 +716,7 @@ function normalizeSources(sources, fallbackConfidence) {
 }
 
 function confidenceBadgeClass(confidence) {
-  if (confidence === "high") {
-    return "bg-green-100/60 text-green-700";
-  }
-  if (confidence === "medium") {
-    return "bg-yellow-100/60 text-yellow-700";
-  }
-  if (confidence === "low") {
-    return "bg-orange-100/60 text-orange-700";
-  }
-  return "bg-gray-100/60 text-gray-700";
+  return "border border-chat-border bg-chat-sidebar text-chat-muted";
 }
 
 export default function ChatMessages({
@@ -816,7 +797,7 @@ export default function ChatMessages({
 
                   <div className={message.role === "user" ? "max-w-[85%]" : "min-w-0 flex-1 pt-0.5"}>
                     {message.role === "user" ? (
-                      <div className="rounded-[1.25rem] bg-chat-user px-4 py-2.5 text-[15px] leading-7 text-ink whitespace-pre-wrap">
+                      <div className="rounded-[10px] bg-chat-user px-4 py-2.5 text-[15px] leading-7 text-ink whitespace-pre-wrap">
                         {message.content}
                       </div>
                     ) : (
@@ -837,7 +818,7 @@ export default function ChatMessages({
                         {(message.usedWebSearch || hasSources) && (
                           <div className="mt-3 flex flex-wrap items-center gap-2">
                             <span className="text-xs font-medium text-chat-muted">Web search used</span>
-                            <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${confidenceBadgeClass(message.sourceConfidence)}`}>
+                            <span className={`inline-flex items-center px-2.5 py-0.5 text-xs font-medium ${confidenceBadgeClass(message.sourceConfidence)}`}>
                               {message.sourceConfidence === "high"
                                 ? "High confidence"
                                 : message.sourceConfidence === "medium"
@@ -853,10 +834,10 @@ export default function ChatMessages({
                                   setActiveSources(sources);
                                   setSourcesOpen(true);
                                 }}
-                                className="inline-flex items-center gap-2 rounded-full border border-chat-border bg-black/[0.03] px-3 py-1.5 text-xs font-medium text-ink transition hover:bg-black/[0.05]"
+                                className="inline-flex items-center gap-2 rounded-[10px] border border-chat-border bg-chat-surface px-3 py-1.5 text-xs font-medium text-ink transition hover:bg-chat-hover"
                               >
                                 Sources
-                                <span className="rounded-full bg-black/[0.06] px-2 py-0.5 text-[11px]">
+                                <span className="bg-chat-sidebar px-2 py-0.5 text-[11px]">
                                   {sources.length}
                                 </span>
                               </button>
@@ -891,7 +872,7 @@ export default function ChatMessages({
       </div>
 
       {sourcesOpen ? (
-        <aside className="sticky top-6 hidden h-[calc(100vh-4rem)] w-[360px] shrink-0 overflow-y-auto rounded-[1.5rem] border border-chat-border bg-white p-4 shadow-[0_20px_50px_rgba(15,23,42,0.08)] xl:block">
+        <aside className="sticky top-6 hidden h-[calc(100vh-4rem)] w-[360px] shrink-0 overflow-y-auto rounded-[10px] border border-chat-border bg-white p-4 xl:block">
           <div className="mb-4 flex items-center justify-between gap-3">
             <div>
               <h2 className="text-base font-semibold text-ink">Sources</h2>
@@ -903,7 +884,7 @@ export default function ChatMessages({
                 setSourcesOpen(false);
                 setActiveSources([]);
               }}
-              className="rounded-full border border-chat-border px-3 py-1 text-sm text-chat-muted transition hover:bg-black/[0.04]"
+              className="rounded-[10px] border border-chat-border px-3 py-1 text-sm text-chat-muted transition hover:bg-chat-hover"
             >
               Close
             </button>
@@ -916,7 +897,7 @@ export default function ChatMessages({
                 href={source.url}
                 target="_blank"
                 rel="noreferrer"
-                className="block rounded-2xl border border-chat-border bg-black/[0.02] p-4 transition hover:bg-black/[0.04]"
+                className="block rounded-[10px] border border-chat-border bg-black/[0.02] p-4 transition hover:bg-chat-hover"
               >
                 <div className="mb-2 text-[11px] font-medium uppercase tracking-[0.08em] text-chat-muted">
                   {source.domain || "Source"}
@@ -925,7 +906,7 @@ export default function ChatMessages({
                 {source.snippet ? (
                   <p className="text-sm leading-6 text-chat-muted">{source.snippet}</p>
                 ) : null}
-                <span className={`mt-3 inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium ${confidenceBadgeClass(source.confidence)}`}>
+                <span className={`mt-3 inline-flex items-center px-2.5 py-1 text-[11px] font-medium ${confidenceBadgeClass(source.confidence)}`}>
                   {source.confidence || "medium"} confidence
                 </span>
               </a>

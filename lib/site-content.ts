@@ -1,8 +1,8 @@
 export const BRAND = {
   name: "Nexa AI",
-  tagline: "Your intelligent assistant for chat, search, memory, and agents.",
+  tagline: "Private AI assistant workspace powered by Ember 0.5.",
   description:
-    "Nexa AI is a ChatGPT-style platform with memory, voice, search, custom assistants, and developer APIs.",
+    "Nexa AI is a private assistant workspace for streaming chat, memory-aware workflows, image creation, browser assistance, and developer APIs.",
 };
 
 export const NAV_LINKS = [
@@ -66,32 +66,32 @@ export const HERO = {
 export const HOME_FEATURES = [
   {
     title: "Nexa Chat",
-    description: "A fast, familiar chat experience with streaming responses and model switching.",
+    description: "Streaming conversations powered by Ember 0.5 with Fast, Thinker, and Deep Thinker modes.",
     href: "/chat",
   },
   {
     title: "Nexa Memory",
-    description: "Persistent memory for preferences, facts, projects, and tasks.",
+    description: "User-controlled memory for preferences, facts, projects, and reusable context.",
     href: "/memory",
   },
   {
     title: "Nexa Search",
-    description: "AI-powered search across chats, files, and the web.",
+    description: "Search across conversations and workspace context, with web grounding when enabled.",
     href: "/search",
   },
   {
-    title: "Nexa Agents",
-    description: "Custom assistants for programming, business, marketing, and more.",
-    href: "/explore",
+    title: "Nexa Images",
+    description: "Create, reopen, inspect, and manage generated images through Prism 0.5.",
+    href: "/images",
   },
   {
     title: "Nexa Voice",
-    description: "Natural voice conversations with low-latency responses.",
+    description: "Voice interaction direction prepared for hands-free assistant workflows.",
     href: "/voice",
   },
   {
     title: "Nexa API",
-    description: "Integrate Nexa models into your apps with keys, SDKs, and examples.",
+    description: "Developer routes for chat, model access, memory, streaming, and usage tracking.",
     href: "/api",
   },
 ];
@@ -317,16 +317,104 @@ export const API_SECTIONS = [
 
 export const BLOG_POSTS = [
   {
-    slug: "nexa-platform-launch",
-    title: "Introducing the Nexa AI platform",
-    date: "2026-06-01",
-    excerpt: "A new public site, chat workspace, and developer portal.",
+    slug: "introducing-ember-0-5",
+    title: "Introducing Ember 0.5, Nexa's first official text model",
+    date: "2026-07-12",
+    category: "Model release",
+    excerpt:
+      "Ember 0.5 powers the core Nexa chat experience with streaming responses, everyday assistance, early reasoning, and browser-aware workflow foundations.",
+    sections: [
+      {
+        title: "Why Ember matters",
+        body:
+          "Ember 0.5 is the first official model release identity in the Nexa model family. It gives the assistant stack a clear product name, a stable public story, and a foundation for future versions such as Ember 1.0 and Ember 1.5.",
+      },
+      {
+        title: "What it powers today",
+        body:
+          "Ember powers the core text/chat experience: direct answers, writing support, explanations, planning, summarization, coding guidance, and structured responses. The model is routed through Nexa's private runtime and is designed to stream output while responses are generated.",
+      },
+      {
+        title: "Runtime direction",
+        body:
+          "The Ember runtime direction is private inference first. Nexa tracks usage, supports mode-based generation, and keeps the assistant stack under Nexa control instead of exposing underlying provider names on public product pages.",
+      },
+    ],
   },
   {
-    slug: "memory-v2",
-    title: "Memory controls and data export",
-    date: "2026-05-15",
-    excerpt: "Export, archive, and training opt-in from one settings panel.",
+    slug: "prism-0-5-image-generation",
+    title: "Prism 0.5 gives Nexa image generation a model identity",
+    date: "2026-07-12",
+    category: "Image generation",
+    excerpt:
+      "Prism 0.5 is the Nexa image-generation model identity for visual creation, concept exploration, and the generated image library.",
+    sections: [
+      {
+        title: "A dedicated image model name",
+        body:
+          "Prism 0.5 separates Nexa's visual generation story from the text assistant. It is the model identity users see when they create generated images, reopen prior work, and manage visual outputs from the image library.",
+      },
+      {
+        title: "How it fits the product",
+        body:
+          "Prism supports product concepts, logos, interior renders, app hero imagery, creative drafts, and visual exploration. Generated images are stored in the user's Nexa library with prompt and metadata context.",
+      },
+      {
+        title: "Where it goes next",
+        body:
+          "Future Prism versions will focus on sharper prompt following, higher fidelity, richer controls, and tighter integration between chat, image prompts, and generated assets.",
+      },
+    ],
+  },
+  {
+    slug: "nexa-private-runtime",
+    title: "Building Nexa around a private model runtime",
+    date: "2026-07-12",
+    category: "Infrastructure",
+    excerpt:
+      "Nexa is designed around local/private model APIs, CUDA-aware inference, streaming routes, model usage tracking, and admin visibility.",
+    sections: [
+      {
+        title: "Private infrastructure first",
+        body:
+          "Nexa's backend direction keeps model execution in the Nexa runtime layer. The stack is structured so chat, image generation, usage tracking, admin model visibility, and future model routes can evolve without tying the product to an external project folder.",
+      },
+      {
+        title: "Operational visibility",
+        body:
+          "The admin model dashboard tracks active model records, request counts, tokens, latency, runtime metadata, and plan access. That visibility matters as Nexa adds more model families and user-facing modes.",
+      },
+      {
+        title: "Mode-based generation",
+        body:
+          "Fast, Thinker, and Deep Thinker modes are product-facing controls that map to response style, token budget, and reasoning depth. Users should choose the kind of work they need without seeing internal provider names.",
+      },
+    ],
+  },
+  {
+    slug: "browser-aware-assistant-direction",
+    title: "Nexa's browser-aware assistant direction",
+    date: "2026-07-12",
+    category: "Product direction",
+    excerpt:
+      "Nexa is being built beyond chat toward page understanding, form assistance, research support, and user-approved browser workflows.",
+    sections: [
+      {
+        title: "Not just a chatbot",
+        body:
+          "The long-term Nexa product is an AI assistant that understands browser context. Chat is the center of the current workspace, but the product direction includes summaries, page-aware help, tab context, form assistance, and workflow guidance.",
+      },
+      {
+        title: "Safety by design",
+        body:
+          "Browser actions need permission-aware controls. Low-risk actions such as summarizing a page can be lightweight, while sensitive actions such as submitting forms, sending messages, or changing account settings require clear user approval.",
+      },
+      {
+        title: "Shared model stack",
+        body:
+          "Browser workflows should reuse the same Nexa identity, memory controls, model routing, and assistant modes as chat so the product feels like one system instead of disconnected tools.",
+      },
+    ],
   },
 ];
 

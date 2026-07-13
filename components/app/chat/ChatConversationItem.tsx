@@ -19,7 +19,7 @@ export default function ChatConversationItem({
   return (
     <div
       className={[
-        "group relative flex w-full items-center gap-1 rounded-lg pr-1 transition hover:bg-chat-hover",
+        "group relative flex w-full items-center gap-1 rounded-[10px] pr-1 transition hover:bg-chat-hover",
         active ? "bg-chat-hover" : "",
       ].join(" ")}
     >

@@ -2459,7 +2459,7 @@ export default function NexaWorkspace({
           <button
             type="button"
             onClick={() => setSidebarOpen((current) => !current)}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-ink transition hover:bg-chat-hover"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-[10px] text-ink transition hover:bg-chat-hover"
             aria-label={sidebarOpen ? "Close sidebar" : "Open sidebar"}
           >
             <IconSidebar />
@@ -2468,7 +2468,7 @@ export default function NexaWorkspace({
             <button
               type="button"
               onClick={() => setSearchOpen(true)}
-              className="ml-auto inline-flex h-9 w-9 items-center justify-center rounded-lg text-ink transition hover:bg-chat-hover"
+              className="ml-auto inline-flex h-9 w-9 items-center justify-center rounded-[10px] text-ink transition hover:bg-chat-hover"
               aria-label="Search chats"
             >
               <IconSearch />
@@ -2484,8 +2484,8 @@ export default function NexaWorkspace({
               className={[
                 "flex items-center text-sm font-medium text-ink transition hover:bg-chat-hover",
                 sidebarOpen
-                  ? "w-full gap-2 rounded-lg px-3 py-2"
-                  : "h-9 w-9 justify-center rounded-lg",
+                  ? "w-full gap-2 rounded-[10px] px-3 py-2"
+                  : "h-9 w-9 justify-center rounded-[10px]",
               ].join(" ")}
               disabled={!currentUser}
               aria-label="Images"
@@ -2500,8 +2500,8 @@ export default function NexaWorkspace({
               className={[
                 "flex items-center text-sm font-medium text-ink transition hover:bg-chat-hover",
                 sidebarOpen
-                  ? "w-full gap-2 rounded-lg border border-chat-border px-3 py-2"
-                  : "h-9 w-9 justify-center rounded-lg",
+                  ? "w-full gap-2 rounded-[10px] border border-chat-border px-3 py-2"
+                  : "h-9 w-9 justify-center rounded-[10px]",
               ].join(" ")}
               disabled={!currentUser}
               aria-label="New chat"
@@ -2547,10 +2547,10 @@ export default function NexaWorkspace({
               {currentUser ? (
                 <>
                   {accountSheetOpen ? (
-                    <div className="absolute bottom-[calc(100%+8px)] left-0 z-50 w-full rounded-xl border border-chat-border bg-chat-surface p-1.5 shadow-chat-popover">
+                    <div className="absolute bottom-[calc(100%+8px)] left-0 z-50 w-full rounded-[10px] border border-chat-border bg-chat-surface p-1.5 shadow-chat-popover">
                       <button
                         type="button"
-                        className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition hover:bg-chat-hover"
+                        className="flex w-full items-center gap-3 rounded-[10px] px-2 py-2 text-left transition hover:bg-chat-hover"
                       >
                         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-ink text-xs font-semibold text-white">
                           {(currentUser.name || currentUser.email || "N").slice(0, 1).toUpperCase()}
@@ -2562,7 +2562,7 @@ export default function NexaWorkspace({
                           <div className="mt-0.5 flex min-w-0 items-center gap-2">
                             <span className="truncate text-xs text-muted">{currentUser.email}</span>
                             {planBadgeLabel(currentUser) ? (
-                              <span className="shrink-0 rounded-full bg-ink px-2 py-0.5 text-[10px] font-semibold leading-none text-white">
+                              <span className="shrink-0 bg-ink px-2 py-0.5 text-[10px] font-semibold leading-none text-white">
                                 {planBadgeLabel(currentUser)}
                               </span>
                             ) : null}
@@ -2581,7 +2581,7 @@ export default function NexaWorkspace({
                               setAccountSheetOpen(false);
                               router.push(adminHref);
                             }}
-                            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-ink transition hover:bg-black/[0.03]"
+                            className="flex w-full items-center gap-3 rounded-[10px] px-3 py-2.5 text-left text-sm font-medium text-ink transition hover:bg-chat-hover"
                           >
                             <span className="w-4 text-center text-[15px] text-muted">#</span>
                             <span>Admin Dashboard</span>
@@ -2590,21 +2590,21 @@ export default function NexaWorkspace({
                         <button
                           type="button"
                           onClick={() => openSettings("billing")}
-                          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-ink transition hover:bg-black/[0.03]"
+                          className="flex w-full items-center gap-3 rounded-[10px] px-3 py-2.5 text-left text-sm text-ink transition hover:bg-chat-hover"
                         >
                           <span className="w-4 text-center text-[15px] text-muted">*</span>
                           <span>Upgrade plan</span>
                         </button>
                         <button
                           type="button"
-                          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-ink transition hover:bg-black/[0.03]"
+                          className="flex w-full items-center gap-3 rounded-[10px] px-3 py-2.5 text-left text-sm text-ink transition hover:bg-chat-hover"
                         >
                           <span className="w-4 text-center text-[15px] text-muted">o</span>
                           <span>Personalization</span>
                         </button>
                         <button
                           type="button"
-                          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-ink transition hover:bg-black/[0.03]"
+                          className="flex w-full items-center gap-3 rounded-[10px] px-3 py-2.5 text-left text-sm text-ink transition hover:bg-chat-hover"
                         >
                           <span className="w-4 text-center text-[15px] text-muted">@</span>
                           <span>Profile</span>
@@ -2614,7 +2614,7 @@ export default function NexaWorkspace({
                           onClick={() => {
                             openSettings("general");
                           }}
-                          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-ink transition hover:bg-black/[0.03]"
+                          className="flex w-full items-center gap-3 rounded-[10px] px-3 py-2.5 text-left text-sm text-ink transition hover:bg-chat-hover"
                         >
                           <img src={settingsIcon.src} alt="" className="h-4 w-4 object-contain opacity-70" />
                           <span>Settings</span>
@@ -2626,7 +2626,7 @@ export default function NexaWorkspace({
                       <div className="space-y-1">
                         <button
                           type="button"
-                          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-ink transition hover:bg-black/[0.03]"
+                          className="flex w-full items-center gap-3 rounded-[10px] px-3 py-2.5 text-left text-sm text-ink transition hover:bg-chat-hover"
                         >
                           <span className="w-4 text-center text-[15px] text-muted">?</span>
                           <span className="flex-1">Help</span>
@@ -2636,7 +2636,7 @@ export default function NexaWorkspace({
                         <button
                           type="button"
                           onClick={handleLogout}
-                          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-ink transition hover:bg-black/[0.03]"
+                          className="flex w-full items-center gap-3 rounded-[10px] px-3 py-2.5 text-left text-sm text-ink transition hover:bg-chat-hover"
                         >
                           <span className="w-4 text-center text-[15px] text-muted">-</span>
                           <span className="flex-1">Log out</span>
@@ -2649,7 +2649,7 @@ export default function NexaWorkspace({
                   <button
                     type="button"
                     onClick={() => setAccountSheetOpen((current) => !current)}
-                    className="flex w-full items-center gap-3 rounded-lg px-2 py-2.5 text-left transition hover:bg-chat-hover"
+                    className="flex w-full items-center gap-3 rounded-[10px] px-2 py-2.5 text-left transition hover:bg-chat-hover"
                   >
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-ink text-xs font-semibold text-white">
                       {(currentUser.name || currentUser.email || "N").slice(0, 1).toUpperCase()}
@@ -2661,7 +2661,7 @@ export default function NexaWorkspace({
                       <div className="mt-0.5 flex min-w-0 items-center gap-2">
                         <span className="truncate text-xs text-chat-muted">Account</span>
                         {planBadgeLabel(currentUser) ? (
-                          <span className="shrink-0 rounded-full bg-ink px-2 py-0.5 text-[10px] font-semibold leading-none text-white">
+                          <span className="shrink-0 bg-ink px-2 py-0.5 text-[10px] font-semibold leading-none text-white">
                             {planBadgeLabel(currentUser)}
                           </span>
                         ) : null}
@@ -2685,7 +2685,7 @@ export default function NexaWorkspace({
             <button
               type="button"
               onClick={() => setMobileSidebarOpen(true)}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg hover:bg-chat-hover"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-[10px] hover:bg-chat-hover"
               aria-label="Open sidebar"
             >
               <IconSidebar />
@@ -2694,7 +2694,7 @@ export default function NexaWorkspace({
             <button
               type="button"
               onClick={() => void handleNewChat()}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg hover:bg-chat-hover"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-[10px] hover:bg-chat-hover"
               aria-label="New chat"
             >
               <IconNewChat />
@@ -2729,7 +2729,7 @@ export default function NexaWorkspace({
               ].join(" ")}
             >
               {loadError ? (
-                <div className="mx-auto mb-4 max-w-3xl rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+                <div className="mx-auto mb-4 max-w-3xl rounded-[10px] border border-chat-border bg-chat-sidebar px-4 py-3 text-sm text-ink">
                   {loadError}
                 </div>
               ) : null}
@@ -2753,7 +2753,7 @@ export default function NexaWorkspace({
 
             <form
               onSubmit={handleSubmit}
-              className="shrink-0 border-t border-chat-border bg-gradient-to-t from-chat-surface via-chat-surface to-transparent px-4 pb-5 pt-3 md:px-6"
+              className="shrink-0 bg-chat-surface px-4 pb-5 pt-3 md:px-6"
             >
               <ChatComposer
                 prompt={prompt}
@@ -2787,7 +2787,7 @@ export default function NexaWorkspace({
             type="button"
             aria-label="Close mobile sidebar"
             onClick={() => setMobileSidebarOpen(false)}
-            className="fixed inset-0 z-40 bg-black/20 backdrop-blur-[2px] md:hidden"
+            className="fixed inset-0 z-40 bg-black/50 md:hidden"
           />
           <aside className="fixed inset-y-0 left-0 z-50 flex w-[260px] flex-col border-r border-chat-border bg-chat-sidebar md:hidden">
             <div className="flex items-center justify-between p-2">
@@ -2795,7 +2795,7 @@ export default function NexaWorkspace({
               <button
                 type="button"
                 onClick={() => setMobileSidebarOpen(false)}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-lg hover:bg-chat-hover"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-[10px] hover:bg-chat-hover"
                 aria-label="Close sidebar"
               >
                 <IconSidebar />
@@ -2809,7 +2809,7 @@ export default function NexaWorkspace({
                   router.push("/images");
                   setMobileSidebarOpen(false);
                 }}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-ink transition hover:bg-chat-hover"
+                className="flex w-full items-center gap-2 rounded-[10px] px-3 py-2 text-sm text-ink transition hover:bg-chat-hover"
                 disabled={!currentUser}
               >
                 <IconImages />
@@ -2821,7 +2821,7 @@ export default function NexaWorkspace({
                   handleNewChat();
                   setMobileSidebarOpen(false);
                 }}
-                className="mt-2 flex w-full items-center gap-2 rounded-lg border border-chat-border px-3 py-2 text-sm font-medium transition hover:bg-chat-hover"
+                className="mt-2 flex w-full items-center gap-2 rounded-[10px] border border-chat-border px-3 py-2 text-sm font-medium transition hover:bg-chat-hover"
                 disabled={!currentUser}
               >
                 <IconNewChat />
@@ -2830,7 +2830,7 @@ export default function NexaWorkspace({
               <button
                 type="button"
                 onClick={() => setSearchOpen(true)}
-                className="mt-2 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-ink transition hover:bg-chat-hover"
+                className="mt-2 flex w-full items-center gap-2 rounded-[10px] px-3 py-2 text-sm text-ink transition hover:bg-chat-hover"
               >
                 <IconSearch />
                 Search chats
@@ -2866,10 +2866,10 @@ export default function NexaWorkspace({
               {currentUser ? (
                 <>
                   {accountSheetOpen ? (
-                    <div className="absolute bottom-[calc(100%+12px)] left-0 z-50 w-full overflow-hidden rounded-[28px] border border-black/10 bg-white shadow-[0_24px_80px_rgba(17,17,17,0.18)]">
+                    <div className="absolute bottom-[calc(100%+12px)] left-0 z-50 w-full overflow-hidden rounded-[10px] border border-chat-border bg-white shadow-chat-popover">
                       <div className="px-4 pb-3 pt-4">
                         <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#2d7dd2] text-sm font-semibold text-white">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-ink text-sm font-semibold text-white">
                             {(currentUser.name || currentUser.email || "N").slice(0, 1).toUpperCase()}
                           </div>
                           <div className="min-w-0 flex-1">
@@ -2879,7 +2879,7 @@ export default function NexaWorkspace({
                             <div className="mt-0.5 flex min-w-0 items-center gap-2">
                               <span className="truncate text-xs text-muted">{currentUser.email}</span>
                               {planBadgeLabel(currentUser) ? (
-                                <span className="shrink-0 rounded-full bg-ink px-2 py-0.5 text-[10px] font-semibold leading-none text-white">
+                                <span className="shrink-0 bg-ink px-2 py-0.5 text-[10px] font-semibold leading-none text-white">
                                   {planBadgeLabel(currentUser)}
                                 </span>
                               ) : null}
@@ -2888,7 +2888,7 @@ export default function NexaWorkspace({
                         </div>
                       </div>
 
-                      <div className="mx-3 rounded-[22px] bg-black/[0.03] p-2">
+                      <div className="mx-3 border-t border-chat-border p-2">
                         {isCurrentUserAdmin ? (
                           <button
                             type="button"
@@ -2896,7 +2896,7 @@ export default function NexaWorkspace({
                               setAccountSheetOpen(false);
                               router.push(adminHref);
                             }}
-                            className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-medium text-ink transition hover:bg-black/[0.03]"
+                            className="flex w-full items-center gap-3 rounded-[10px] px-3 py-3 text-left text-sm font-medium text-ink transition hover:bg-chat-hover"
                           >
                             <span className="w-4 text-center text-[15px] text-muted">#</span>
                             <span>Admin Dashboard</span>
@@ -2905,21 +2905,21 @@ export default function NexaWorkspace({
                         <button
                           type="button"
                           onClick={() => openSettings("billing")}
-                          className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm text-ink transition hover:bg-black/[0.03]"
+                          className="flex w-full items-center gap-3 rounded-[10px] px-3 py-3 text-left text-sm text-ink transition hover:bg-chat-hover"
                         >
                           <span className="w-4 text-center text-[15px] text-muted">*</span>
                           <span>Upgrade plan</span>
                         </button>
                         <button
                           type="button"
-                          className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm text-ink transition hover:bg-black/[0.03]"
+                          className="flex w-full items-center gap-3 rounded-[10px] px-3 py-3 text-left text-sm text-ink transition hover:bg-chat-hover"
                         >
                           <span className="w-4 text-center text-[15px] text-muted">o</span>
                           <span>Personalization</span>
                         </button>
                         <button
                           type="button"
-                          className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm text-ink transition hover:bg-black/[0.03]"
+                          className="flex w-full items-center gap-3 rounded-[10px] px-3 py-3 text-left text-sm text-ink transition hover:bg-chat-hover"
                         >
                           <span className="w-4 text-center text-[15px] text-muted">@</span>
                           <span>Profile</span>
@@ -2929,17 +2929,17 @@ export default function NexaWorkspace({
                           onClick={() => {
                             openSettings("general");
                           }}
-                          className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm text-ink transition hover:bg-black/[0.03]"
+                          className="flex w-full items-center gap-3 rounded-[10px] px-3 py-3 text-left text-sm text-ink transition hover:bg-chat-hover"
                         >
                           <img src={settingsIcon.src} alt="" className="h-4 w-4 object-contain opacity-70" />
                           <span>Settings</span>
                         </button>
                       </div>
 
-                      <div className="mx-3 mb-3 mt-3 rounded-[22px] bg-black/[0.03] p-2">
+                      <div className="mx-3 mb-3 mt-3 border-t border-chat-border p-2">
                         <button
                           type="button"
-                          className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm text-ink transition hover:bg-black/[0.03]"
+                          className="flex w-full items-center gap-3 rounded-[10px] px-3 py-3 text-left text-sm text-ink transition hover:bg-chat-hover"
                         >
                           <span className="w-4 text-center text-[15px] text-muted">?</span>
                           <span className="flex-1">Help</span>
@@ -2948,7 +2948,7 @@ export default function NexaWorkspace({
                         <button
                           type="button"
                           onClick={handleLogout}
-                          className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm text-ink transition hover:bg-black/[0.03]"
+                          className="flex w-full items-center gap-3 rounded-[10px] px-3 py-3 text-left text-sm text-ink transition hover:bg-chat-hover"
                         >
                           <span className="w-4 text-center text-[15px] text-muted">-</span>
                           <span className="flex-1">Log out</span>
@@ -2961,9 +2961,9 @@ export default function NexaWorkspace({
                   <button
                     type="button"
                     onClick={() => setAccountSheetOpen((current) => !current)}
-                    className="flex w-full items-center gap-3 rounded-2xl border border-black/5 bg-white/60 px-3 py-3 text-left transition hover:bg-white/85"
+                    className="flex w-full items-center gap-3 rounded-[10px] border-t border-chat-border px-3 py-3 text-left transition hover:bg-chat-hover"
                   >
-                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#2d7dd2] text-sm font-semibold text-white">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-ink text-sm font-semibold text-white">
                       {(currentUser.name || currentUser.email || "N").slice(0, 1).toUpperCase()}
                     </div>
                     <div className="min-w-0 flex-1">
@@ -2973,7 +2973,7 @@ export default function NexaWorkspace({
                       <div className="mt-0.5 flex min-w-0 items-center gap-2">
                         <span className="truncate text-xs text-muted">{currentUser.email}</span>
                         {planBadgeLabel(currentUser) ? (
-                          <span className="shrink-0 rounded-full bg-ink px-2 py-0.5 text-[10px] font-semibold leading-none text-white">
+                          <span className="shrink-0 bg-ink px-2 py-0.5 text-[10px] font-semibold leading-none text-white">
                             {planBadgeLabel(currentUser)}
                           </span>
                         ) : null}
@@ -2983,7 +2983,7 @@ export default function NexaWorkspace({
                   </button>
                 </>
               ) : (
-                <div className="rounded-2xl border border-black/5 bg-white/60 px-3 py-3 text-sm text-muted">
+                <div className="border-t border-chat-border px-3 py-3 text-sm text-muted">
                   {authLoading ? "Checking session..." : "Sign in to save your chats."}
                 </div>
               )}
@@ -2998,10 +2998,10 @@ export default function NexaWorkspace({
             type="button"
             aria-label="Close search"
             onClick={closeSearch}
-            className="fixed inset-0 z-40 bg-black/10 backdrop-blur-[2px]"
+            className="fixed inset-0 z-40 bg-black/50"
           />
           <div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-24">
-            <div className="w-full max-w-[680px] overflow-hidden rounded-[28px] border border-black/10 bg-white shadow-[0_24px_80px_rgba(17,17,17,0.18)]">
+            <div className="w-full max-w-[680px] overflow-hidden rounded-[10px] border border-chat-border bg-white shadow-chat-popover">
               <div className="flex items-center gap-3 border-b border-line px-5 py-4">
                 <input
                   ref={searchInputRef}
@@ -3028,9 +3028,9 @@ export default function NexaWorkspace({
                     void handleNewChat();
                     closeSearch();
                   }}
-                  className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-[15px] transition hover:bg-black/[0.03]"
+                  className="flex w-full items-center gap-3 rounded-[10px] px-4 py-3 text-left text-[15px] transition hover:bg-chat-hover"
                 >
-                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/[0.05] text-lg text-ink">
+                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-[10px] bg-black/[0.05] text-lg text-ink">
                     +
                   </span>
                   <span>New chat</span>
@@ -3047,9 +3047,9 @@ export default function NexaWorkspace({
                         key={`${item.conversationId}-${item.type}`}
                         type="button"
                         onClick={() => void openConversation(item.conversationId)}
-                        className="flex w-full items-start gap-3 rounded-2xl px-4 py-3 text-left transition hover:bg-black/[0.03]"
+                        className="flex w-full items-start gap-3 rounded-[10px] px-4 py-3 text-left transition hover:bg-chat-hover"
                       >
-                        <span className="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/[0.05] text-xs font-medium uppercase text-muted">
+                        <span className="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-[10px] bg-black/[0.05] text-xs font-medium uppercase text-muted">
                           {item.type === "message" ? (item.role === "user" ? "You" : assistantName.slice(0, 1)) : "C"}
                         </span>
                         <div className="min-w-0">

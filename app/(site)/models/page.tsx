@@ -128,12 +128,19 @@ export default function ModelsPage() {
 
           <div className="relative">
             <div className="absolute -inset-8 rounded-[40px] bg-orange-500/10 blur-3xl" aria-hidden />
-            <Image
-              src={emberModelArt}
-              alt="Introducing Ember 0.5, Nexa's first-generation text model"
-              priority
-              className="relative rounded-[28px] border border-white/10 shadow-[0_32px_120px_rgba(255,98,0,0.28)]"
-            />
+            <div className="relative overflow-hidden rounded-[28px] border border-white/10 bg-black shadow-[0_32px_120px_rgba(255,98,0,0.28)]">
+              <video
+                className="aspect-[16/10] h-full w-full object-cover"
+                src="/media/Ember_Reveal.mp4"
+                poster={emberModelArt.src}
+                autoPlay
+                muted
+                loop
+                playsInline
+                preload="metadata"
+                aria-label="Ember 0.5 launch reveal video"
+              />
+            </div>
           </div>
         </div>
       </section>

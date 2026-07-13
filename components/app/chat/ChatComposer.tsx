@@ -40,7 +40,6 @@ export default function ChatComposer({
 }) {
   const [plusMenuOpen, setPlusMenuOpen] = useState(false);
   const thinkingMenuId = `${menuId}-thinking`;
-
   const currentMode =
     THINKING_MODES.find((mode) => String(mode.value) === String(responseLength)) ||
     THINKING_MODES[0];
@@ -101,22 +100,22 @@ export default function ChatComposer({
     <div className="mx-auto w-full max-w-3xl">
       <div
         data-composer-menu-root
-        className="relative rounded-[26px] border border-chat-border bg-chat-surface shadow-chat-composer transition focus-within:border-chat-border-strong"
+        className="relative rounded-full border border-chat-border bg-chat-surface transition focus-within:border-chat-border-strong"
       >
         <textarea
           value={prompt}
           onChange={(event) => setPrompt(event.target.value)}
           onKeyDown={onKeyDown}
           rows={1}
-          className="max-h-[200px] min-h-[52px] w-full resize-none rounded-[26px] bg-transparent px-4 pb-12 pl-12 pt-3.5 text-base leading-6 text-ink outline-none placeholder:text-chat-muted"
+          className="max-h-[120px] min-h-[42px] w-full resize-none rounded-full bg-transparent py-2.5 pl-12 pr-[132px] text-[15px] leading-6 text-ink outline-none placeholder:text-chat-muted"
           aria-label="Message"
           placeholder={placeholder}
         />
 
-        <div className="absolute bottom-2 left-2">
+        <div className="absolute left-2 top-1/2 -translate-y-1/2">
           <div className="relative">
             {plusMenuOpen ? (
-              <div className="absolute bottom-full left-0 mb-2 w-56 rounded-xl border border-chat-border bg-chat-surface py-1.5 shadow-chat-popover">
+              <div className="absolute bottom-full left-0 mb-2 w-56 rounded-[10px] border border-chat-border bg-chat-surface py-1.5 shadow-chat-popover">
                 {PLUS_MENU_ITEMS.map((item) => (
                   <button
                     key={item.id}
@@ -130,7 +129,7 @@ export default function ChatComposer({
                         : "text-ink hover:bg-chat-hover",
                     ].join(" ")}
                   >
-                    <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center text-base">
+                    <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center text-xs text-chat-muted">
                       {item.icon}
                     </span>
                     <span className="flex-1">{item.label}</span>
@@ -147,7 +146,7 @@ export default function ChatComposer({
             <button
               type="button"
               onClick={openPlusMenu}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full text-xl leading-none text-chat-muted transition hover:bg-chat-hover hover:text-ink"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-[10px] text-xl leading-none text-chat-muted transition hover:bg-chat-hover hover:text-ink"
               aria-label="Add attachments and more"
               aria-expanded={plusMenuOpen}
             >
@@ -156,10 +155,10 @@ export default function ChatComposer({
           </div>
         </div>
 
-        <div className="absolute bottom-2 right-2 flex items-center justify-end gap-2">
+        <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center justify-end gap-2">
           <div className="relative">
             {addMenuOpen === thinkingMenuId ? (
-              <div className="absolute bottom-full right-0 mb-2 w-52 rounded-xl border border-chat-border bg-chat-surface p-1.5 shadow-chat-popover">
+              <div className="absolute bottom-full right-0 z-30 mb-2 w-52 rounded-[10px] border border-chat-border bg-chat-surface p-1.5 shadow-chat-popover">
                 {THINKING_MODES.map((mode) => {
                   const selected = String(responseLength) === String(mode.value);
                   return (
@@ -171,7 +170,7 @@ export default function ChatComposer({
                         setAddMenuOpen("");
                       }}
                       className={[
-                        "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition",
+                        "flex w-full items-center gap-2 rounded-[10px] px-3 py-2 text-left text-sm transition",
                         selected ? "bg-chat-hover font-medium text-ink" : "text-ink hover:bg-chat-hover",
                       ].join(" ")}
                     >
@@ -203,7 +202,7 @@ export default function ChatComposer({
           <button
             type="submit"
             disabled={!canSend}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full transition disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full transition hover:bg-chat-hover disabled:cursor-not-allowed disabled:opacity-50"
             aria-label="Send message"
           >
             <IconSend className="h-7 w-7" />

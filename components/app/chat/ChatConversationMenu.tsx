@@ -134,7 +134,7 @@ export default function ChatConversationMenu({
           setOpen((current) => !current);
         }}
         className={[
-          "inline-flex h-7 w-7 items-center justify-center rounded-md text-chat-muted transition hover:bg-chat-surface hover:text-ink",
+          "inline-flex h-7 w-7 items-center justify-center rounded-[10px] text-chat-muted transition hover:bg-chat-hover hover:text-ink",
           open ? "opacity-100" : "opacity-0 group-hover:opacity-100",
         ].join(" ")}
         aria-label={`Chat options for ${conversation.title}`}
@@ -146,7 +146,7 @@ export default function ChatConversationMenu({
       {open ? (
         <div
           role="menu"
-          className="absolute right-0 top-full z-50 mt-1 min-w-[200px] rounded-xl border border-chat-border bg-chat-surface py-1.5 shadow-chat-popover"
+          className="absolute right-0 top-full z-50 mt-1 min-w-[200px] rounded-[10px] border border-chat-border bg-chat-surface py-1.5 shadow-chat-popover"
           onClick={(event) => event.stopPropagation()}
         >
           {items.map((item) => {
@@ -171,7 +171,7 @@ export default function ChatConversationMenu({
                   item.disabled
                     ? "cursor-not-allowed text-chat-muted/60"
                     : item.danger
-                      ? "text-red-600 hover:bg-red-50"
+                      ? "text-ink hover:bg-chat-hover"
                       : "text-ink hover:bg-chat-hover",
                 ].join(" ")}
               >
