@@ -18,6 +18,33 @@ export function IconSearch({ className = "h-4 w-4" }: IconProps) {
   );
 }
 
+export function IconImages({ className = "h-4 w-4" }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
+      <path
+        d="M5.5 19h13A2.5 2.5 0 0 0 21 16.5v-9A2.5 2.5 0 0 0 18.5 5h-13A2.5 2.5 0 0 0 3 7.5v9A2.5 2.5 0 0 0 5.5 19Z"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="m4.5 15 3.3-3.3a1.6 1.6 0 0 1 2.3 0l2.1 2.1 1.3-1.3a1.6 1.6 0 0 1 2.3 0L19.5 16"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M16.5 9.25h.01"
+        stroke="currentColor"
+        strokeWidth="2.4"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 export function IconSidebar({ className = "h-4 w-4" }: IconProps) {
   return <img src={sidebarIcon.src} alt="" className={[className, "object-contain opacity-80"].join(" ")} />;
 }

@@ -14,8 +14,7 @@ import ChatEmptyState from "./chat/ChatEmptyState";
 import ChatMessages from "./chat/ChatMessages";
 import ChatTopBar from "./chat/ChatTopBar";
 import ChatConversationItem from "./chat/ChatConversationItem";
-import ChatArchivedDropdown from "./chat/ChatArchivedDropdown";
-import { IconNewChat, IconSearch, IconSidebar, NexaMark } from "./chat/ChatIcons";
+import { IconImages, IconNewChat, IconSearch, IconSidebar, NexaMark } from "./chat/ChatIcons";
 import { notifyAuthChanged, useAuth } from "../providers/AuthProvider";
 import { isChatPinned, sortWithPinnedFirst, togglePinnedChat } from "../../lib/pinned-chats";
 import { BILLING_PLANS, getPlanLimitHighlights } from "../../lib/billing-plans";
@@ -371,7 +370,6 @@ export default function NexaWorkspace({
   const [conversationLoading, setConversationLoading] = useState(false);
   const [memorySaving, setMemorySaving] = useState(false);
   const [deletingConversationId, setDeletingConversationId] = useState("");
-  const [archivedMenuOpen, setArchivedMenuOpen] = useState(false);
   const [archivingConversationId, setArchivingConversationId] = useState("");
   const [loadError, setLoadError] = useState("");
   const [responseLength, setResponseLength] = useState("auto");
@@ -507,11 +505,32 @@ export default function NexaWorkspace({
         setAuthLoading(false);
 
         try {
-          const initialConversationId =
+          const initialParams =
             typeof window !== "undefined"
-              ? new URLSearchParams(window.location.search).get("chat") || ""
-              : "";
+              ? new URLSearchParams(window.location.search)
+              : null;
+          const initialConversationId = initialParams?.get("chat") || "";
+          const initialPrompt = initialParams?.get("prompt")?.trim() || "";
+          const shouldSendInitialPrompt = initialParams?.get("send") === "1";
           await loadWorkspace(jwt, initialConversationId);
+
+          if (initialPrompt && typeof window !== "undefined") {
+            const nextParams = new URLSearchParams(window.location.search);
+            nextParams.delete("prompt");
+            nextParams.delete("send");
+            const nextQuery = nextParams.toString();
+            window.history.replaceState(
+              null,
+              "",
+              `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ""}`,
+            );
+
+            if (shouldSendInitialPrompt) {
+              await submitPrompt(initialPrompt, jwt);
+            } else {
+              setPrompt(initialPrompt);
+            }
+          }
         } catch (error) {
           setLoadError(error.message || "Failed to load workspace memory.");
         }
@@ -862,6 +881,8 @@ export default function NexaWorkspace({
     } else {
       params.delete("chat");
     }
+    params.delete("prompt");
+    params.delete("send");
 
     const query = params.toString();
     router.replace(query ? `${conversationPathname}?${query}` : conversationPathname, {
@@ -869,9 +890,8 @@ export default function NexaWorkspace({
     });
   }
 
-  async function handleSubmit(event) {
-    event.preventDefault();
-    const content = prompt.trim();
+  async function submitPrompt(rawContent, tokenOverride = "") {
+    const content = String(rawContent || "").trim();
     if (!content || isSending) {
       return;
     }
@@ -914,7 +934,7 @@ export default function NexaWorkspace({
           stream: true,
           ...(responseLength === "auto" ? {} : { max_new_tokens: Number(responseLength) }),
         }),
-      });
+      }, tokenOverride);
 
       const contentType = response.headers.get("Content-Type") || "";
 
@@ -1313,6 +1333,11 @@ export default function NexaWorkspace({
     }
   }
 
+  async function handleSubmit(event) {
+    event.preventDefault();
+    await submitPrompt(prompt);
+  }
+
   async function handleNewChat() {
     setLoadError("");
     setActiveConversationId("");
@@ -1353,10 +1378,6 @@ export default function NexaWorkspace({
       listSnapshot.conversations,
       listSnapshot.archivedConversations,
     );
-
-    if (archived) {
-      setArchivedMenuOpen(true);
-    }
 
     if (activeConversationId === conversationId && archived) {
       const nextActive = activeItems[0];
@@ -1706,11 +1727,6 @@ export default function NexaWorkspace({
     if (routeMode === "settings") {
       router.replace("/chat");
     }
-  }
-
-  function handleShowArchivedChats() {
-    setArchivedMenuOpen(true);
-    setMobileSidebarOpen(true);
   }
 
   function addFact() {
@@ -2136,16 +2152,45 @@ export default function NexaWorkspace({
               <div className="pr-4">
                 <div className="text-sm font-medium text-ink">Archived chats</div>
                 <div className="mt-1 text-xs text-muted">
-                  {dataControls.counts.archived} archived chat{dataControls.counts.archived === 1 ? "" : "s"}.
+                  View and restore conversations you moved out of the main chat list.
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={handleShowArchivedChats}
-                className="rounded-full border border-line px-3 py-1.5 text-sm text-ink transition hover:bg-black/[0.03]"
-              >
-                View
-              </button>
+              <div className="rounded-full border border-line px-3 py-1.5 text-sm text-muted">
+                {dataControls.counts.archived} archived
+              </div>
+            </div>
+
+            <div className="border-b border-black/6 px-5 py-4">
+              {sortedArchivedConversations.length === 0 ? (
+                <div className="rounded-[18px] border border-dashed border-line bg-black/[0.015] px-4 py-6 text-center">
+                  <div className="text-sm font-medium text-ink">No archived chats</div>
+                  <div className="mt-1 text-xs text-muted">
+                    Archived conversations will appear here instead of the chat sidebar.
+                  </div>
+                </div>
+              ) : (
+                <div className="max-h-[360px] overflow-y-auto rounded-[18px] border border-line bg-white p-1">
+                  {sortedArchivedConversations.map((conversation) => (
+                    <ChatConversationItem
+                      key={conversation.id}
+                      conversation={conversation}
+                      active={activeConversationId === conversation.id}
+                      isPinned={false}
+                      isArchived
+                      onOpen={() => {
+                        setMemoryModalOpen(false);
+                        setActiveSettingsSection("general");
+                        void openConversation(conversation.id);
+                      }}
+                      onShare={() => handleShareConversation(conversation.id)}
+                      onRename={() => void handleRenameConversation(conversation)}
+                      onPin={() => handleTogglePin(conversation.id)}
+                      onUnarchive={() => void handleArchiveConversation(conversation.id, false)}
+                      onDelete={() => void handleDeleteConversation(conversation.id)}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="flex items-center justify-between border-b border-black/6 px-5 py-4">
@@ -2430,39 +2475,41 @@ export default function NexaWorkspace({
           ) : null}
         </div>
 
-        {currentUser ? (
-          <ChatArchivedDropdown
-            open={archivedMenuOpen}
-            onToggle={setArchivedMenuOpen}
-            archivedConversations={sortedArchivedConversations}
-            activeConversationId={activeConversationId}
-            sidebarOpen={sidebarOpen}
-            onOpenConversation={(conversationId) => void openConversation(conversationId)}
-            onShare={handleShareConversation}
-            onRename={(conversation) => void handleRenameConversation(conversation)}
-            onPin={handleTogglePin}
-            onUnarchive={(conversationId) => void handleArchiveConversation(conversationId, false)}
-            onDelete={(conversationId) => void handleDeleteConversation(conversationId)}
-          />
-        ) : null}
-
         <div className={sidebarOpen ? "px-2" : "flex justify-center px-1"}>
-          <button
-            type="button"
-            onClick={handleNewChat}
-            className={[
-              "flex items-center text-sm font-medium text-ink transition hover:bg-chat-hover",
-              sidebarOpen
-                ? "w-full gap-2 rounded-lg border border-chat-border px-3 py-2"
-                : "h-9 w-9 justify-center rounded-lg",
-            ].join(" ")}
-            disabled={!currentUser}
-            aria-label="New chat"
-            title="New chat"
-          >
-            <IconNewChat />
-            {sidebarOpen ? <span>New chat</span> : null}
-          </button>
+          <div className={sidebarOpen ? "space-y-2" : "flex flex-col items-center gap-2"}>
+            <button
+              type="button"
+              onClick={() => router.push("/images")}
+              className={[
+                "flex items-center text-sm font-medium text-ink transition hover:bg-chat-hover",
+                sidebarOpen
+                  ? "w-full gap-2 rounded-lg px-3 py-2"
+                  : "h-9 w-9 justify-center rounded-lg",
+              ].join(" ")}
+              disabled={!currentUser}
+              aria-label="Images"
+              title="Images"
+            >
+              <IconImages />
+              {sidebarOpen ? <span>Images</span> : null}
+            </button>
+            <button
+              type="button"
+              onClick={handleNewChat}
+              className={[
+                "flex items-center text-sm font-medium text-ink transition hover:bg-chat-hover",
+                sidebarOpen
+                  ? "w-full gap-2 rounded-lg border border-chat-border px-3 py-2"
+                  : "h-9 w-9 justify-center rounded-lg",
+              ].join(" ")}
+              disabled={!currentUser}
+              aria-label="New chat"
+              title="New chat"
+            >
+              <IconNewChat />
+              {sidebarOpen ? <span>New chat</span> : null}
+            </button>
+          </div>
         </div>
 
         {sidebarOpen ? (
@@ -2748,33 +2795,26 @@ export default function NexaWorkspace({
               </button>
             </div>
 
-            {currentUser ? (
-              <ChatArchivedDropdown
-                open={archivedMenuOpen}
-                onToggle={setArchivedMenuOpen}
-                archivedConversations={sortedArchivedConversations}
-                activeConversationId={activeConversationId}
-                sidebarOpen
-                onOpenConversation={(conversationId) => {
-                  void openConversation(conversationId);
+            <div className="px-2">
+              <button
+                type="button"
+                onClick={() => {
+                  router.push("/images");
                   setMobileSidebarOpen(false);
                 }}
-                onShare={handleShareConversation}
-                onRename={(conversation) => void handleRenameConversation(conversation)}
-                onPin={handleTogglePin}
-                onUnarchive={(conversationId) => void handleArchiveConversation(conversationId, false)}
-                onDelete={(conversationId) => void handleDeleteConversation(conversationId)}
-              />
-            ) : null}
-
-            <div className="px-2">
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-ink transition hover:bg-chat-hover"
+                disabled={!currentUser}
+              >
+                <IconImages />
+                Images
+              </button>
               <button
                 type="button"
                 onClick={() => {
                   handleNewChat();
                   setMobileSidebarOpen(false);
                 }}
-                className="flex w-full items-center gap-2 rounded-lg border border-chat-border px-3 py-2 text-sm font-medium transition hover:bg-chat-hover"
+                className="mt-2 flex w-full items-center gap-2 rounded-lg border border-chat-border px-3 py-2 text-sm font-medium transition hover:bg-chat-hover"
                 disabled={!currentUser}
               >
                 <IconNewChat />
