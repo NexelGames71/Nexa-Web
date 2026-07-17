@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { account, appwriteConfigured, createSessionJwt } from "../../lib/appwrite";
+import { account, identityConfigured, createSessionJwt } from "../../lib/nexa-identity";
 import AdminMetricCard from "./AdminMetricCard";
 import AdminPageHeader from "./AdminPageHeader";
 import AdminPanel from "./AdminPanel";
@@ -372,7 +372,7 @@ export default function AdminAnalyticsPage() {
 
   useEffect(() => {
     async function initialize() {
-      if (!appwriteConfigured) {
+      if (!identityConfigured) {
         router.replace("/login");
         return;
       }

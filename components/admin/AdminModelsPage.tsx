@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { createSessionJwt } from "../../lib/appwrite";
+import { createSessionJwt } from "../../lib/nexa-identity";
 import AdminPageHeader from "./AdminPageHeader";
 import AdminPanel from "./AdminPanel";
 import {

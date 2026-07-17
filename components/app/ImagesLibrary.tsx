@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
-import { account, appwriteConfigured, createSessionJwt } from "../../lib/appwrite";
+import { account, identityConfigured, createSessionJwt } from "../../lib/nexa-identity";
 
 type GeneratedImage = {
   id: string;
@@ -83,8 +83,8 @@ export default function ImagesLibrary() {
     setError("");
 
     try {
-      if (!appwriteConfigured) {
-        throw new Error("Appwrite is not configured.");
+      if (!identityConfigured) {
+        throw new Error("Nexa Identity is not configured.");
       }
 
       await account.get();

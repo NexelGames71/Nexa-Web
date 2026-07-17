@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import { account, appwriteConfigured, createSessionJwt } from "../../lib/appwrite";
+import { account, identityConfigured, createSessionJwt } from "../../lib/nexa-identity";
 import AdminMetricCard from "./AdminMetricCard";
 import AdminPageHeader from "./AdminPageHeader";
 import AdminPanel from "./AdminPanel";
@@ -197,7 +197,7 @@ export default function TrainingDashboard() {
 
   useEffect(() => {
     async function initialize() {
-      if (!appwriteConfigured) {
+      if (!identityConfigured) {
         router.replace("/login");
         return;
       }
@@ -335,7 +335,7 @@ export default function TrainingDashboard() {
         <AdminMetricCard
           label="Total users"
           value={formatCompactNumber(totalUsers)}
-          note="All Appwrite users"
+          note="All Nexa Identity users"
           icon={<Icon name="users" className="h-6 w-6" />}
         />
         <AdminMetricCard

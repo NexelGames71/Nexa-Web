@@ -1,6 +1,6 @@
 # Nexa AI Platform (Web)
 
-Public marketing site plus the Nexa Chat workspace, wired to the same APIs and Appwrite backend as `C:\Nexa\frontend`.
+Public marketing site plus the Nexa Chat workspace, wired to the same Nexa API runtime as `C:\Nexa`.
 
 ## Quick start
 
@@ -20,7 +20,9 @@ Required:
 
 - `NEXT_PUBLIC_API_URL` - Nexa Python API. Use `https://api.trynexa-ai.com` in production and `http://127.0.0.1:8000` for local-only development.
 - `NEXA_IMAGE_API_URL` - unified Nexa API for image routes. Keep this the same as `NEXT_PUBLIC_API_URL`.
-- `NEXT_PUBLIC_APPWRITE_*` and server `APPWRITE_*` keys for chat, memory, and admin
+- `NEXT_PUBLIC_NEXA_IDENTITY_URL` and `NEXA_IDENTITY_URL` - central Nexa Identity service for login, sessions, admin checks, and token verification.
+- `NEXT_PUBLIC_APPWRITE_*` and server `APPWRITE_*` keys only for legacy collections that have not been moved yet.
+- `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_URL`, and server-only `SUPABASE_SERVICE_ROLE_KEY` for billing subscriptions, payments, and plan usage.
 - Admin accounts are identified by email local-part prefix: `admin.name@example.com`.
 - `trynexa-ai.com/admin` is allowed to load the admin route, but only `admin.*@...` accounts can stay there.
 - Set `NEXA_ADMIN_HOSTS` only when you want to override the allowed admin hosts.
@@ -64,6 +66,21 @@ ingress:
 | Admin | `/admin`, `/admin/users`, `/admin/models`, `/admin/analytics`, `/admin/billing`, `/admin/support`, `/admin/training` only when the deployment enables admin routes and the signed-in account email starts with `admin.` |
 
 Legacy `/auth` redirects to `/login`.
+
+## Supabase billing data
+
+Nexa is moving quota-sensitive billing data off Appwrite so billing pages do not fail when Appwrite read limits are reached. Nexa Identity is the auth source for products, backed by Supabase Postgres through Prisma. Apply the SQL migration in `supabase/migrations/202607160001_nexa_billing_usage.sql`, then set:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=YOUR_PUBLIC_PUBLISHABLE_KEY
+SUPABASE_URL=https://YOUR_PROJECT.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=YOUR_SERVER_ONLY_SERVICE_ROLE_KEY
+NEXT_PUBLIC_NEXA_IDENTITY_URL=https://identity.trynexa-ai.com
+NEXA_IDENTITY_URL=https://identity.trynexa-ai.com
+```
+
+When these values are present, billing subscriptions, payments, and plan usage are read from Supabase. Authentication and token verification go through Nexa Identity. Chat history, memory, images, promotions, and some admin datasets remain on legacy collections until those modules are migrated.
 
 ## APIs (Next.js to backend)
 

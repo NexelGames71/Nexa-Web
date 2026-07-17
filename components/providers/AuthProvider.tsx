@@ -8,7 +8,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import { account, appwriteConfigured, isAdminEmail } from "../../lib/appwrite";
+import { account, identityConfigured, isAdminEmail } from "../../lib/nexa-identity";
 
 type AuthUser = {
   $id: string;
@@ -34,7 +34,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
-    if (!appwriteConfigured) {
+    if (!identityConfigured) {
       setUser(null);
       setLoading(false);
       return;

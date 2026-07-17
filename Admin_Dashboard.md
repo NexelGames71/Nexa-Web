@@ -1111,33 +1111,29 @@ Do not allow support users to access billing or model controls unless permission
 Use least-privilege role access.
 PayPal Subscription Implementation Details
 
-Build the PayPal integration in a production-ready way.
+PayPal billing is owned by Nexa Identity. Nexa Web must not store PayPal credentials,
+create PayPal products, rotate PayPal plans, or verify PayPal webhooks directly.
 
 Required Environment Variables
 
-Use names like:
+Nexa Web only needs the Identity service URL used by checkout and account APIs:
 
-PAYPAL_CLIENT_ID=
-PAYPAL_CLIENT_SECRET=
-PAYPAL_WEBHOOK_ID=
-PAYPAL_ENV=sandbox
+NEXA_IDENTITY_URL=
+
+PayPal credentials, webhook configuration, and plan IDs live in Nexa Identity.
+
 Required Features
-Create PayPal access token server-side.
-Create products/plans or store existing PayPal plan IDs.
-Start checkout for subscriptions.
-Confirm approved subscription.
-Webhook endpoint for PayPal events.
-Verify webhook signature.
-Update Nexa subscription status when PayPal sends events.
-Store subscription IDs and transaction IDs.
+Call Nexa Identity to start checkout for subscriptions.
+Read subscription and usage state from Nexa Identity.
 Show billing status in admin dashboard.
-Show failed payments.
-Allow manual sync with PayPal.
-PayPal Events to Handle
+Show failed payments reported by Nexa Identity.
+Keep PayPal product/plan rotation in the Identity repo scripts.
+Keep PayPal webhook verification in Nexa Identity.
+Allow manual refresh from Nexa Identity billing status.
+PayPal Events
 
-Handle at minimum:
-
-BILLING.SUBSCRIPTION.CREATED
+PayPal event handling belongs in Nexa Identity. Nexa Web should display normalized billing
+state returned by Identity instead of processing raw PayPal events.
 BILLING.SUBSCRIPTION.ACTIVATED
 BILLING.SUBSCRIPTION.CANCELLED
 BILLING.SUBSCRIPTION.SUSPENDED

@@ -8,7 +8,7 @@ import {
   requireAdminFromRequest,
   subscriptionsCollectionId,
 } from "../../../../lib/server/appwrite";
-import { getPayPalStatus } from "../../../../lib/server/paypal";
+import { getIdentityPayPalStatus } from "../../../../lib/server/identity-billing";
 
 function parseJson(value: unknown, fallback: any) {
   if (!value) return fallback;
@@ -95,7 +95,7 @@ export async function GET(request: Request) {
     ]);
 
     return Response.json({
-      paypal: getPayPalStatus(),
+      paypal: await getIdentityPayPalStatus(),
       plans: (plans.documents || []).map(planFromDocument),
       subscriptions: (subscriptions.documents || []).map(subscriptionFromDocument),
       payments: (payments.documents || []).map(paymentFromDocument),

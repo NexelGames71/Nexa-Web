@@ -1,13 +1,10 @@
-import AuthForm from "../../../components/marketing/AuthForm";
+import { redirect } from "next/navigation";
 
-export default function SignupPage() {
-  return (
-    <AuthForm
-      mode="register"
-      title="Create your account"
-      subtitle="Start chatting with Nexa in minutes."
-      alternateHref="/login"
-      alternateLabel="Already have an account? Sign in"
-    />
-  );
+export default function SignupPage({ searchParams }: { searchParams?: { next?: string; return_to?: string } }) {
+  const params = new URLSearchParams({ mode: "signup" });
+  const next = searchParams?.next || searchParams?.return_to;
+  if (next) {
+    params.set("next", next);
+  }
+  redirect(`/api/auth/start?${params.toString()}`);
 }

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { account, appwriteConfigured, ID, isAdminEmail } from "../../lib/appwrite";
+import { account, identityConfigured, ID, isAdminEmail } from "../../lib/nexa-identity";
 import { notifyAuthChanged, useAuth } from "../providers/AuthProvider";
 
 type AuthFormProps = {
@@ -32,7 +32,7 @@ export default function AuthForm({
 
   useEffect(() => {
     async function init() {
-      if (!appwriteConfigured) {
+      if (!identityConfigured) {
         setAuthError("Nexa authentication is not configured for this deployment.");
         setAuthLoading(false);
         return;
@@ -59,7 +59,7 @@ export default function AuthForm({
 
   async function handleAuthSubmit(event: React.FormEvent) {
     event.preventDefault();
-    if (!appwriteConfigured || authSubmitting) {
+    if (!identityConfigured || authSubmitting) {
       return;
     }
 
@@ -145,7 +145,7 @@ export default function AuthForm({
 
           <button
             type="submit"
-            disabled={authSubmitting || authLoading || !appwriteConfigured}
+            disabled={authSubmitting || authLoading || !identityConfigured}
             className="w-full rounded-2xl bg-ink px-4 py-3 text-sm font-medium text-white transition disabled:cursor-not-allowed disabled:opacity-60"
           >
             {authSubmitting ? "Working..." : mode === "login" ? "Sign in" : "Create account"}

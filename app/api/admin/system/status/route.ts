@@ -7,7 +7,7 @@ import {
   supportNotesCollectionId,
   supportTicketsCollectionId,
 } from "../../../../../lib/server/appwrite";
-import { getPayPalStatus } from "../../../../../lib/server/paypal";
+import { getIdentityPayPalStatus } from "../../../../../lib/server/identity-billing";
 import {
   r2TrainingExportsBucketName,
   r2UserStorageBucketName,
@@ -23,13 +23,11 @@ export async function GET(request: Request) {
     return Response.json({ error: (auth as any).error }, { status: (auth as any).status });
   }
 
-  const paypal = getPayPalStatus();
+  const paypal = await getIdentityPayPalStatus();
   const checks = [
     envStatus("R2_USER_STORAGE_BUCKET_NAME", Boolean(r2UserStorageBucketName)),
     envStatus("R2_TRAINING_EXPORTS_BUCKET_NAME", Boolean(r2TrainingExportsBucketName)),
-    envStatus("PAYPAL_CLIENT_ID", paypal.clientIdConfigured),
-    envStatus("PAYPAL_CLIENT_SECRET", paypal.secretConfigured),
-    envStatus("PAYPAL_WEBHOOK_ID", paypal.webhookConfigured),
+    envStatus("NEXA_IDENTITY_PAYPAL_BILLING", Boolean(paypal.configured)),
     envStatus("APPWRITE_BILLING_PLANS_COLLECTION_ID", Boolean(billingPlansCollectionId)),
     envStatus("APPWRITE_SUBSCRIPTIONS_COLLECTION_ID", Boolean(subscriptionsCollectionId)),
     envStatus("APPWRITE_PAYMENTS_COLLECTION_ID", Boolean(paymentsCollectionId)),
@@ -44,7 +42,8 @@ export async function GET(request: Request) {
     paypal: {
       environment: paypal.environment,
       configured: paypal.configured,
-      supportedEvents: paypal.supportedEvents,
+      managedBy: paypal.managedBy,
+      configuredPlanCount: paypal.configuredPlanCount,
     },
   });
 }

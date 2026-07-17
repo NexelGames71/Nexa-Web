@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { createSessionJwt } from "../../lib/appwrite";
+import { createSessionJwt } from "../../lib/nexa-identity";
 import AdminPageHeader from "./AdminPageHeader";
 import AdminPanel from "./AdminPanel";
 import {
@@ -307,7 +307,7 @@ export default function AdminPromotionsPage() {
       {error ? <ErrorState message={error} onRetry={() => void loadPromotions()} /> : null}
       {data.warning ? (
         <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-          {data.warning} Create the required Appwrite collections before saving campaigns.
+          {data.warning} Create the required legacy data collections before saving campaigns.
         </div>
       ) : null}
 

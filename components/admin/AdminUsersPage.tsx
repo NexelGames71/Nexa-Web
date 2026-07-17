@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { account, appwriteConfigured, createSessionJwt } from "../../lib/appwrite";
+import { account, identityConfigured, createSessionJwt } from "../../lib/nexa-identity";
 import AdminMetricCard from "./AdminMetricCard";
 import AdminPageHeader from "./AdminPageHeader";
 import AdminPanel from "./AdminPanel";
@@ -214,7 +214,7 @@ export default function AdminUsersPage() {
 
   useEffect(() => {
     async function initialize() {
-      if (!appwriteConfigured) {
+      if (!identityConfigured) {
         router.replace("/login");
         return;
       }
@@ -352,7 +352,7 @@ export default function AdminUsersPage() {
         <AdminMetricCard
           label="Total users"
           value={totalUsers.toLocaleString()}
-          note="All Appwrite accounts"
+          note="All Nexa Identity accounts"
           icon={<span className="text-xl">👥</span>}
         />
         <AdminMetricCard

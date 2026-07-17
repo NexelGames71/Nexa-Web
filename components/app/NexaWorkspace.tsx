@@ -5,10 +5,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   account,
-  appwriteConfigured,
+  identityConfigured,
   createSessionJwt,
   isAdminEmail,
-} from "../../lib/appwrite";
+} from "../../lib/nexa-identity";
 import ChatComposer from "./chat/ChatComposer";
 import ChatEmptyState from "./chat/ChatEmptyState";
 import ChatMessages from "./chat/ChatMessages";
@@ -307,6 +307,23 @@ function isLikelyImageGenerationPrompt(content) {
   return visualSubject && !nonImageArtifact;
 }
 
+function isLikelyVideoGenerationPrompt(content) {
+  const normalized = String(content || "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!normalized) {
+    return false;
+  }
+
+  return (
+    /\b(create|generate|make|render|produce|design)\b.{0,90}\b(video|clip|animation|animated scene|short film|motion)\b/.test(normalized) ||
+    /\b(video|clip|animation|animated scene|short film)\b.{0,70}\b(of|for|showing|featuring|with)\b/.test(normalized) ||
+    /\btext[-\s]?to[-\s]?video\b/.test(normalized)
+  );
+}
+
 function ThinkingIndicator({ label }) {
   return (
     <article className="max-w-4xl px-1">
@@ -459,7 +476,7 @@ export default function NexaWorkspace({
 
   useEffect(() => {
     async function initialize() {
-      if (!appwriteConfigured) {
+      if (!identityConfigured) {
         router.replace("/login");
         return;
       }
@@ -899,16 +916,28 @@ export default function NexaWorkspace({
 
     setPrompt("");
     setIsSending(true);
-    const imageGenerationRequested = isLikelyImageGenerationPrompt(content);
+    const videoGenerationRequested = isLikelyVideoGenerationPrompt(content);
+    const imageGenerationRequested = !videoGenerationRequested && isLikelyImageGenerationPrompt(content);
     setSendingActivity(
-      imageGenerationRequested
+      videoGenerationRequested
+        ? "creating-video"
+        : imageGenerationRequested
         ? "creating-image"
         : shouldLikelySearchWeb(content)
           ? "searching"
           : "thinking",
     );
     setImageGenerationStatus(
-      imageGenerationRequested
+      videoGenerationRequested
+        ? {
+            title: "Queued video",
+            detail: "Prism is preparing the video generation workflow.",
+            progress: 3,
+            status: "queued",
+            aspectRatio: "1:1",
+            style: "video",
+          }
+        : imageGenerationRequested
         ? {
             title: "Thinking",
             detail: "Planning the image design, detail, style, and aspect ratio.",
@@ -981,6 +1010,116 @@ export default function NexaWorkspace({
         }
 
         const savedUserMessage = data.userMessage ? normalizeMessage(data.userMessage) : null;
+        if (data.videoJob?.id) {
+          const videoJob = data.videoJob;
+          const pollUrl = videoJob.pollUrl || `/api/video-jobs/${videoJob.id}`;
+          const videoAssistantId = streamingAssistantId;
+
+          setSendingActivity("creating-video");
+          setImageGenerationStatus({
+            title: videoJob.title || "Queued video",
+            detail:
+              videoJob.detail ||
+              "Prism is preparing the video generation workflow.",
+            progress: Number(videoJob.progress || 3),
+            status: videoJob.status || "queued",
+            aspectRatio: "1:1",
+            style: "video",
+          });
+
+          setMessages((current) => {
+            const withoutOptimistic = current.filter((message) => message.id !== optimisticId);
+            return [
+              ...withoutOptimistic,
+              ...(savedUserMessage ? [savedUserMessage] : []),
+            ];
+          });
+
+          const startedAt = Date.now();
+          while (Date.now() - startedAt < 60 * 60 * 1000) {
+            await wait(3000);
+            const jobResponse = await authorizedFetch(pollUrl);
+            const jobData = await jobResponse.json();
+
+            if (!jobResponse.ok) {
+              throw new Error(jobData.error || "Failed to check video generation status.");
+            }
+
+            const job = jobData.job || {};
+            setImageGenerationStatus({
+              title: job.title || "Generating video",
+              detail:
+                job.detail ||
+                "Prism is rendering frames in ComfyUI.",
+              progress: Number(job.progress || 0),
+              status: job.status || "processing",
+              aspectRatio: "1:1",
+              style: "video",
+            });
+
+            if (job.status === "failed") {
+              throw new Error(job.error || "Video generation failed.");
+            }
+
+            if (job.status === "completed") {
+              const result = job.result || {};
+              const savedAssistantMessage = result.assistantMessage
+                ? normalizeMessage(result.assistantMessage)
+                : null;
+
+              if (result.memory) {
+                setMemoryProfile(result.memory);
+                setMemoryDraft(draftFromMemory(result.memory));
+              }
+
+              if (result.conversation) {
+                const updatedConversation = normalizeConversation(result.conversation);
+                setConversations((current) => [
+                  updatedConversation,
+                  ...current.filter((entry) => entry.id !== updatedConversation.id),
+                ]);
+                setSearchResults((current) => {
+                  const searchConversation = {
+                    conversationId: updatedConversation.id,
+                    title: updatedConversation.title,
+                    snippet: updatedConversation.lastMessagePreview || "",
+                    updatedAt: updatedConversation.updatedAt || "",
+                    type: "conversation",
+                  };
+                  return [
+                    searchConversation,
+                    ...current.filter((entry) => entry.conversationId !== updatedConversation.id),
+                  ];
+                });
+              }
+
+              const finalAssistantMessage = {
+                ...(savedAssistantMessage || {}),
+                id: savedAssistantMessage?.id || videoAssistantId,
+                role: "assistant",
+                content:
+                  savedAssistantMessage?.content ??
+                  sanitizeAssistantContent(result.reply || ""),
+                sourceConfidence: "none",
+                usedWebSearch: false,
+                sources: [],
+              };
+
+              if (!String(finalAssistantMessage.content || "").trim() && !result.video?.url) {
+                throw new Error("Video generation completed without a renderable video response.");
+              }
+
+              setMessages((current) => [...current, finalAssistantMessage]);
+
+              setSendingActivity("");
+              setImageGenerationStatus(null);
+              return;
+            }
+          }
+
+          throw new Error("Video generation is still running. Try refreshing the conversation in a moment.");
+        }
+
         if (data.imageJob?.id) {
           const imageJob = data.imageJob;
           const pollUrl = imageJob.pollUrl || `/api/image-jobs/${imageJob.id}`;

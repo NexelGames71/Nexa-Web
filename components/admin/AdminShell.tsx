@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { account, appwriteConfigured, isAdminEmail } from "../../lib/appwrite";
+import { account, identityConfigured, isAdminEmail } from "../../lib/nexa-identity";
 import { BRAND } from "../../lib/site-content";
 
 export const ADMIN_NAV = [
@@ -59,10 +59,10 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   const [user, setUser] = useState<{ name?: string; email?: string } | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const isKnownAdmin = !appwriteConfigured || isAdminEmail(user?.email);
+  const isKnownAdmin = !identityConfigured || isAdminEmail(user?.email);
 
   useEffect(() => {
-    if (!appwriteConfigured) {
+    if (!identityConfigured) {
       setAuthChecked(true);
       return;
     }
@@ -74,14 +74,14 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
   }, []);
 
   useEffect(() => {
-    if (!authChecked || !appwriteConfigured || isKnownAdmin) {
+    if (!authChecked || !identityConfigured || isKnownAdmin) {
       return;
     }
 
     router.replace(user ? "/chat" : "/login");
   }, [authChecked, isKnownAdmin, router, user]);
 
-  if (authChecked && appwriteConfigured && !isKnownAdmin) {
+  if (authChecked && identityConfigured && !isKnownAdmin) {
     return null;
   }
 

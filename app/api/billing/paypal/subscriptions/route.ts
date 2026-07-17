@@ -1,7 +1,7 @@
-import { getBillingPlan, getPayPalPlanId } from "../../../../../lib/billing-plans";
+import { getBillingPlan } from "../../../../../lib/billing-plans";
 import { requireUserFromRequest } from "../../../../../lib/server/appwrite";
 import { getBillingProfileForUser } from "../../../../../lib/server/billing";
-import { createPayPalSubscription } from "../../../../../lib/server/paypal";
+import { getIdentityBaseUrl } from "../../../../../lib/server/nexa-identity-flow";
 
 function siteOrigin(request: Request) {
   const configured =
@@ -47,31 +47,39 @@ export async function POST(request: Request) {
       );
     }
 
-    const paypalPlanId = getPayPalPlanId(plan.id);
-    if (!paypalPlanId) {
+    const origin = siteOrigin(request);
+    const identityResponse = await fetch(`${getIdentityBaseUrl()}/v1/subscriptions/checkout`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${(auth as any).jwt}`,
+      },
+      cache: "no-store",
+      body: JSON.stringify({
+        planId: plan.id,
+        successUrl: `${origin}/checkout/success?plan=${encodeURIComponent(plan.id)}`,
+        cancelUrl: `${origin}/checkout?plan=${encodeURIComponent(plan.id)}&paypal=cancelled`,
+      }),
+    });
+    const payload = await identityResponse.json().catch(() => ({}));
+    if (!identityResponse.ok || payload?.ok === false) {
       return Response.json(
-        { error: `Missing PayPal plan ID for ${plan.name}.` },
-        { status: 500 },
+        { error: payload?.error?.message || "Nexa Identity could not create checkout." },
+        { status: identityResponse.status || 500 },
       );
     }
 
-    const origin = siteOrigin(request);
-    const subscription = await createPayPalSubscription({
-      planId: paypalPlanId,
-      returnUrl: `${origin}/checkout/success?plan=${encodeURIComponent(plan.id)}`,
-      cancelUrl: `${origin}/checkout?plan=${encodeURIComponent(plan.id)}&paypal=cancelled`,
-      customId: (auth as any).user.$id,
-    });
+    const checkout = payload?.data || payload;
 
     return Response.json({
-      id: subscription.id,
-      status: subscription.status,
+      id: checkout.externalId || "",
+      url: checkout.url,
+      status: "created",
       plan: {
         id: plan.id,
         name: plan.name,
-        paypalPlanId,
       },
-      links: subscription.links || [],
+      links: checkout.url ? [{ rel: "approve", href: checkout.url, method: "GET" }] : [],
     });
   } catch (error: any) {
     return Response.json(

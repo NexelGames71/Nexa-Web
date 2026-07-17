@@ -1,5 +1,5 @@
 import { requireAdminFromRequest } from "../../../../../../lib/server/appwrite";
-import { getPayPalStatus } from "../../../../../../lib/server/paypal";
+import { getIdentityPayPalStatus } from "../../../../../../lib/server/identity-billing";
 
 export async function GET(request: Request) {
   const auth = await requireAdminFromRequest(request);
@@ -7,5 +7,5 @@ export async function GET(request: Request) {
     return Response.json({ error: auth.error }, { status: auth.status });
   }
 
-  return Response.json({ paypal: getPayPalStatus() });
+  return Response.json({ paypal: await getIdentityPayPalStatus() });
 }

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import { createSessionJwt } from "../../lib/appwrite";
+import { createSessionJwt } from "../../lib/nexa-identity";
 import { getBillingPlan } from "../../lib/billing-plans";
 
 type CheckoutSuccessPanelProps = {

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import { account, createSessionJwt } from "../../lib/appwrite";
+import { account, createSessionJwt } from "../../lib/nexa-identity";
 import { BILLING_PLANS, getBillingPlan, getPlanLimitHighlights } from "../../lib/billing-plans";
 import PromotionSpotlight from "../promotions/PromotionSpotlight";
 import PayPalSubscribeButton from "./PayPalSubscribeButton";

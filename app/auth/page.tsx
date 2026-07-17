@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function LegacyAuthPage() {
-  redirect("/login");
+  redirect("/api/auth/start?mode=login");
 }

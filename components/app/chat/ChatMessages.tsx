@@ -291,6 +291,27 @@ function renderMarkdownImage(line, key) {
     return null;
   }
 
+  if (alt.toLowerCase().startsWith("nexa-video:")) {
+    const label = alt.replace(/^nexa-video:/i, "").trim() || "Generated video";
+    return (
+      <figure
+        key={key}
+        className="group relative aspect-video w-full max-w-[640px] overflow-hidden rounded-[10px] border border-chat-border bg-black"
+      >
+        <video
+          src={src}
+          controls
+          playsInline
+          preload="metadata"
+          className="h-full w-full bg-black object-contain"
+        />
+        <figcaption className="border-t border-white/10 bg-black px-4 py-3 text-xs font-medium text-white/80">
+          {label}
+        </figcaption>
+      </figure>
+    );
+  }
+
   return (
     <figure
       key={key}
@@ -328,6 +349,7 @@ function renderMarkdownImage(line, key) {
 function cleanGeneratedImageText(value) {
   return String(value || "")
     .replace(/^\s*Generated image:\s*[\s\S]*$/i, "")
+    .replace(/^\s*Generated video:\s*[\s\S]*$/i, "")
     .replace(/\s*Backend:\s*[\w.-]+\s*/gi, " ")
     .trim();
 }
@@ -521,9 +543,10 @@ function renderAssistantContent(content, options = {}) {
       const dividerOnly = lines.length === 1 && /^([-*_]\s*){3,}$/.test(firstLine);
       const backendOnly = lines.length === 1 && /^\s*Backend:\s*[\w.-]+\s*$/i.test(firstLine);
       const generatedImageTextOnly = lines.length === 1 && /^\s*Generated image:\s*/i.test(firstLine);
+      const generatedVideoTextOnly = lines.length === 1 && /^\s*Generated video:\s*/i.test(firstLine);
       const imageOnly = lines.length === 1 ? renderMarkdownImage(firstLine, `image-${index}-${paragraphIndex}`) : null;
 
-      if (backendOnly || generatedImageTextOnly) {
+      if (backendOnly || generatedImageTextOnly || generatedVideoTextOnly) {
         return null;
       }
 
@@ -733,6 +756,8 @@ export default function ChatMessages({
   const activityLabel =
     sendingActivity === "searching"
       ? "Searching the web"
+      : sendingActivity === "creating-video"
+        ? "Creating video"
       : sendingActivity === "creating-image"
         ? "Creating image"
       : sendingActivity === "queued"
@@ -746,6 +771,8 @@ export default function ChatMessages({
   const activityHint =
     sendingActivity === "searching"
       ? "Nexa is gathering fresh sources"
+      : sendingActivity === "creating-video"
+        ? "Prism is generating the video"
       : sendingActivity === "creating-image"
         ? "Nexa is generating the image"
       : sendingActivity === "queued"
@@ -855,7 +882,7 @@ export default function ChatMessages({
           {isSending && !activeAssistantStream ? (
             <article className="flex gap-4">
               <NexaMark className="h-7 w-7 shrink-0 text-xs" />
-              {sendingActivity === "creating-image" ? (
+              {sendingActivity === "creating-image" || sendingActivity === "creating-video" ? (
                 <ImageGenerationPendingCard status={imageGenerationStatus} />
               ) : (
                 <div>

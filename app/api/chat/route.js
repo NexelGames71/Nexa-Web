@@ -38,6 +38,7 @@ import {
   assertGeneratedImageStorageConfigured as assertGeneratedImageStorageConfiguredForFlow,
   createBackendImageJob as createBackendImageJobForFlow,
 } from "../../../lib/server/image-generation-flow";
+import { createBackendVideoJob } from "../../../lib/server/video-generation-flow";
 import {
   createSignedDownloadUrl,
   ensureR2Config,
@@ -445,6 +446,23 @@ function isImageGenerationPrompt(content) {
     /\b(app|application|website|code|function|script|plan|roadmap|strategy|essay|article|email|message|document|database|api|architecture|business|schedule|task|list)\b/.test(normalized);
 
   return visualSubject && !nonImageArtifact;
+}
+
+function isVideoGenerationPrompt(content) {
+  const normalized = String(content || "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!normalized) {
+    return false;
+  }
+
+  return (
+    /\b(create|generate|make|render|produce|design)\b.{0,90}\b(video|clip|animation|animated scene|short film|motion)\b/.test(normalized) ||
+    /\b(video|clip|animation|animated scene|short film)\b.{0,70}\b(of|for|showing|featuring|with)\b/.test(normalized) ||
+    /\btext[-\s]?to[-\s]?video\b/.test(normalized)
+  );
 }
 
 function parseImageToolCallText(text) {
@@ -1948,7 +1966,8 @@ export async function POST(request) {
       ? Math.min(baseMaxNewTokens, EXPLANATION_MAX_NEW_TOKENS)
       : baseMaxNewTokens;
   const responseMode = responseModeFromMaxNewTokens(maxNewTokens, content);
-  const imageGenerationRequested = isImageGenerationPrompt(content);
+  const videoGenerationRequested = isVideoGenerationPrompt(content);
+  const imageGenerationRequested = !videoGenerationRequested && isImageGenerationPrompt(content);
   const wantsStream = Boolean(body.stream);
   const structuredResponseRequested = isStructuredResponsePrompt(content);
   const modelTemperature = structuredResponseRequested ? 0.2 : DEFAULT_TEMPERATURE;
@@ -1960,7 +1979,7 @@ export async function POST(request) {
   const usageChecks = [];
   const usageMetricsToRecord = [];
 
-  if (imageGenerationRequested) {
+  if (imageGenerationRequested || videoGenerationRequested) {
     const imageLimit = await checkPlanLimit(auth.user.$id, PLAN_USAGE_METRICS.IMAGE_GENERATIONS, 1);
     if (!imageLimit.allowed) {
       return planLimitResponse(imageLimit);
@@ -1968,22 +1987,24 @@ export async function POST(request) {
     usageChecks.push(imageLimit);
     usageMetricsToRecord.push(PLAN_USAGE_METRICS.IMAGE_GENERATIONS);
 
-    const concurrentLimit = planConcurrentImageLimit(imageLimit.plan.id);
-    const activeImageJobs = await countActiveImageGenerationJobs(auth.user.$id);
-    if (concurrentLimit > 0 && activeImageJobs >= concurrentLimit) {
-      return Response.json(
-        {
-          error: "Concurrent image generation limit reached.",
-          code: "plan_limit_reached",
-          metric: "concurrent_image_jobs",
-          plan: imageLimit.plan,
-          used: activeImageJobs,
-          limit: concurrentLimit,
-          resetAt: "",
-          upgradePlan: imageLimit.upgradePlan,
-        },
-        { status: 429 },
-      );
+    if (imageGenerationRequested) {
+      const concurrentLimit = planConcurrentImageLimit(imageLimit.plan.id);
+      const activeImageJobs = await countActiveImageGenerationJobs(auth.user.$id, { kind: "image" });
+      if (concurrentLimit > 0 && activeImageJobs >= concurrentLimit) {
+        return Response.json(
+          {
+            error: "Concurrent image generation limit reached.",
+            code: "plan_limit_reached",
+            metric: "concurrent_image_jobs",
+            plan: imageLimit.plan,
+            used: activeImageJobs,
+            limit: concurrentLimit,
+            resetAt: "",
+            upgradePlan: imageLimit.upgradePlan,
+          },
+          { status: 429 },
+        );
+      }
     }
   } else {
     const chatLimit = await checkPlanLimit(auth.user.$id, PLAN_USAGE_METRICS.CHAT_MESSAGES, 1);
@@ -2071,7 +2092,7 @@ export async function POST(request) {
 
     const memoryPrompt = buildMemorySystemPrompt(initialMemory);
     const webSearchResult =
-      !imageGenerationRequested && shouldLikelySearchWeb(content)
+      !imageGenerationRequested && !videoGenerationRequested && shouldLikelySearchWeb(content)
         ? await searchTavily(content)
         : {
             used: false,
@@ -2081,7 +2102,7 @@ export async function POST(request) {
             sourceConfidence: "none",
             groundingPrompt: "",
           };
-    if (!imageGenerationRequested && shouldLikelySearchWeb(content)) {
+    if (!imageGenerationRequested && !videoGenerationRequested && shouldLikelySearchWeb(content)) {
       console.info("Tavily web search", {
         used: webSearchResult.used,
         reason: webSearchResult.reason,
@@ -2152,6 +2173,89 @@ export async function POST(request) {
       includeMemory: shouldUsePersonalMemory,
       compactSimplePrompt,
     });
+
+    if (videoGenerationRequested) {
+      if (wantsStream) {
+        const backendVideoJob = await createBackendVideoJob({
+          prompt: content,
+          raw_user_intent: content,
+          width: 768,
+          height: 432,
+          frames: 81,
+          fps: 24,
+          steps: 40,
+          cfg: 5.5,
+        });
+        await recordModelUsage({
+          modelId: "prism-0.5",
+          userId: auth.user.$id,
+          mode: "video",
+          requestCount: 1,
+          inputTokens: Math.max(1, Math.ceil(content.length / 4)),
+          outputTokens: 0,
+          latencyMs: Date.now() - requestStartedAt,
+          errorCount: 0,
+        });
+        const initialConversation = {
+          $id: conversationId,
+          title: conversationData.conversation.title || DEFAULT_CONVERSATION_TITLE,
+          updatedAt: conversationData.conversation.updatedAt || conversationData.conversation.$updatedAt || "",
+          lastMessagePreview: `Generating video: ${content}`.slice(0, 120),
+        };
+
+        const job = createImageGenerationJob({
+          userId: auth.user.$id,
+          conversationId,
+          initialStatus: {
+            status: "queued",
+            progress: 3,
+            title: "Queued video",
+            detail: "Prism is preparing the video generation workflow.",
+            aspect_ratio: "1:1",
+            style: "video",
+          },
+          meta: {
+            kind: "video",
+            backendJobId: backendVideoJob.backendJobId,
+            content,
+            prompt: content,
+            userMessage: savedUserMessage,
+            initialMemory,
+            conversationTitle: conversationData.conversation.title || DEFAULT_CONVERSATION_TITLE,
+            needsGeneratedTitle,
+          },
+        });
+
+        return Response.json(
+          {
+            conversationId,
+            conversation: initialConversation,
+            memory: initialMemory,
+            userMessage: savedUserMessage,
+            videoJob: {
+              id: job.id,
+              status: job.status,
+              progress: job.progress,
+              title: job.title,
+              detail: job.detail,
+              pollUrl: `/api/video-jobs/${job.id}`,
+            },
+            usageWarnings,
+          },
+          {
+            status: 202,
+            headers: {
+              "Cache-Control": "no-store",
+            },
+          },
+        );
+      }
+
+      return Response.json(
+        { error: "Video generation requires streaming job mode." },
+        { status: 400 },
+      );
+    }
 
     if (isImageGenerationPrompt(content)) {
       const runImageGeneration = async () => {
