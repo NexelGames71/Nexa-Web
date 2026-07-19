@@ -3,6 +3,27 @@
 import { useEffect, useState } from "react";
 import { setIdentityTokens } from "../../lib/nexa-identity";
 
+function getSafeCallbackMessage(error: unknown) {
+  const fallback = "Could not complete sign in. Please try again.";
+  if (!(error instanceof Error) || !error.message.trim()) {
+    return fallback;
+  }
+
+  const message = error.message.trim();
+  const normalized = message.toLowerCase();
+  if (
+    message.length > 180 ||
+    normalized.includes("prisma.") ||
+    normalized.includes("connectorerror") ||
+    normalized.includes("prepared statement") ||
+    normalized.includes("postgres")
+  ) {
+    return fallback;
+  }
+
+  return message;
+}
+
 export default function AuthCallback() {
   const [message, setMessage] = useState("Completing secure sign in...");
 
@@ -35,7 +56,7 @@ export default function AuthCallback() {
         window.location.replace(data.returnTo || "/chat");
       } catch (error) {
         if (!cancelled) {
-          setMessage(error instanceof Error ? error.message : "Could not complete sign in.");
+          setMessage(getSafeCallbackMessage(error));
         }
       }
     }

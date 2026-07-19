@@ -6,6 +6,25 @@ import {
   NEXA_WEB_CLIENT_ID,
 } from "../../../../lib/server/nexa-identity-flow";
 
+function sanitizeIdentityError(message) {
+  if (typeof message !== "string" || !message.trim()) {
+    return "Could not complete Nexa Identity sign in.";
+  }
+
+  const normalized = message.toLowerCase();
+  if (
+    normalized.includes("prisma.") ||
+    normalized.includes("connectorerror") ||
+    normalized.includes("prepared statement") ||
+    normalized.includes("postgres") ||
+    normalized.includes("query execution")
+  ) {
+    return "Nexa Identity is temporarily unable to complete sign in. Please try again.";
+  }
+
+  return message;
+}
+
 export async function POST(request) {
   const body = await request.json().catch(() => ({}));
   const expectedState = request.cookies.get(NEXA_AUTH_STATE_COOKIE)?.value || "";
@@ -26,7 +45,7 @@ export async function POST(request) {
   const payload = await response.json().catch(() => ({}));
   if (!response.ok || payload?.ok === false) {
     return NextResponse.json(
-      { ok: false, error: { message: payload?.error?.message || "Could not complete Nexa Identity sign in." } },
+      { ok: false, error: { message: sanitizeIdentityError(payload?.error?.message) } },
       { status: response.status || 401 },
     );
   }
